@@ -37,7 +37,9 @@ volatile int pulse_delay = 0;
 volatile int test_type = 0;
 
 void yaw_test();
-void heave_test(int T, int A, int wait_time);
+void heave_test();
+void yaw();
+void heave();
 void start_test(void);
 
 void setup() {
@@ -66,8 +68,12 @@ void setup() {
 }
 
 void loop(void) {
-	
-delay(200);
+
+  if (state == STATE_TESTING){
+      start_test();
+      state = STATE_NULL;
+   }
+   delay(200);
 }
 
 // callback for received data
@@ -82,33 +88,37 @@ void receiveData(int byteCount){
 			case STATE_NULL:
 				test_type = cmd;
 				state = STATE_TESTTYPE_GOOD;
-				//Serial.println("STATE_TESTTYPE_GOOD");
+        Serial.print(cmd);
+				//Serial.println(" STATE_TESTTYPE_GOOD");
 				break;
 			case STATE_TESTTYPE_GOOD:
-				amplitude = (RANGE/5)*cmd;
+				amplitude = 100*cmd;
 				state = STATE_AMP_GOOD;
-				//Serial.println("STATE_AMP_GOOD");
+        Serial.println(cmd);
+				//Serial.println(" STATE_AMP_GOOD");
 				break;
 			case STATE_AMP_GOOD:
 				period = cmd*100;
 				state = STATE_T_GOOD;
-				//Serial.println("STATE_T_GOOD");
+				Serial.print(cmd);
+				//Serial.println(" STATE_T_GOOD");
 				break;
 			case STATE_T_GOOD:
 				pulse_delay = cmd*1000;
 				state = STATE_DELAY_GOOD;
-				//Serial.println("STATE_DELAY_GOOD");
+       Serial.print(cmd);
+				//Serial.println(" STATE_DELAY_GOOD");
 				break;
 			case STATE_DELAY_GOOD:
-				//Serial.println(test_type);
-				//Serial.println(period);
-				//Serial.println(amplitude);
-				//Serial.println(pulse_delay);
+				Serial.println(test_type);
+        Serial.println(amplitude);
+				Serial.println(period);
+				Serial.println(pulse_delay);
 				if (cmd == 1){
 					state = STATE_TESTING;
-					//Serial.println("STATE_TESTING");
-					start_test();
-         state = STATE_NULL;
+					Serial.println(" STATE_TESTING");
+					//start_test();
+         //state = STATE_NULL;
 				}
 				break;
 			case STATE_TESTING:
@@ -123,10 +133,15 @@ void receiveData(int byteCount){
 
 void start_test(void){
 	if (test_type == YAW_TEST){
-		yaw_test();
-   //yaw();
-		
+		//yaw_test();
+   yaw();
 	} 
+  else if (test_type == HEAVE_TEST) {
+    heave();
+   }
+  else if (test_type == SURGE_TEST) {
+    surge();
+   }
 }
 
 // callback for sending data
@@ -158,25 +173,50 @@ void yaw() {
 
 }
 
-void heave(int T, int A, int wait_time) {
-    for (int i = MID_PULSE_LENGTH; i <= (MID_PULSE_LENGTH+A); i += 1) {
+void heave() {
+    for (int i = MID_PULSE_LENGTH; i <= (MID_PULSE_LENGTH+amplitude); i += 1) {
         motC.writeMicroseconds(i);
         delay(1);
     }
-	delay(T/2);
+	delay(period/2);
     motC.writeMicroseconds(MID_PULSE_LENGTH);
-	delay(wait_time);
+	delay(pulse_delay);
 	
-	for (int i = MID_PULSE_LENGTH; i >= (MID_PULSE_LENGTH-A); i -= 1) {
+	for (int i = MID_PULSE_LENGTH; i >= (MID_PULSE_LENGTH-amplitude); i -= 1) {
         motC.writeMicroseconds(i);
         delay(1);
     }
 
-	delay(T/2);
+	delay(period/2);
     motC.writeMicroseconds(MID_PULSE_LENGTH);
-	delay(wait_time);
+	delay(pulse_delay);
 }
 
+void surge() {
+    for (int i = MID_PULSE_LENGTH; i <= (MID_PULSE_LENGTH+amplitude); i += 5) {
+        motA.writeMicroseconds(i);
+        int j = MID_PULSE_LENGTH - i + MID_PULSE_LENGTH;
+        motB.writeMicroseconds(j);
+        delay(10);
+    }
+  delay(period/2);
+    motA.writeMicroseconds(MID_PULSE_LENGTH);
+    motB.writeMicroseconds(MID_PULSE_LENGTH);
+  delay(pulse_delay);
+  Serial.println("first half");
+  for (int i = MID_PULSE_LENGTH; i >= (MID_PULSE_LENGTH-amplitude); i -= 5) {
+        motA.writeMicroseconds(i);
+        int j = MID_PULSE_LENGTH - i + MID_PULSE_LENGTH;
+        motB.writeMicroseconds(j);
+        delay(10);
+    }
+
+  delay(period/2);
+    motA.writeMicroseconds(MID_PULSE_LENGTH);
+    motB.writeMicroseconds(MID_PULSE_LENGTH);
+  delay(pulse_delay);
+ Serial.println("done!");
+}
 void yaw_test(){//(int T, int A, int wait_time) {
 	for (int i = 0; i < ncycles; i++){
 		yaw();
@@ -185,6 +225,6 @@ void yaw_test(){//(int T, int A, int wait_time) {
 
 void heave_test(int T, int A, int wait_time) {
 	for (int i = 0; i < ncycles; i++){
-		heave(T, A, wait_time);
+		heave();
 	}
 }
