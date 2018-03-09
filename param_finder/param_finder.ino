@@ -24,7 +24,9 @@
 #define MID_PULSE_LENGTH 1500 // Middle pulse length in µs
 #define MAX_PULSE_LENGTH 2000 // Maximum pulse length in µs
 #define RANGE MAX_PULSE_LENGTH-MID_PULSE_LENGTH
-
+//SURGE FORWARD THEN BACK
+//HEAVE UP THEN DOWN
+//YAW 
 Servo motA, motB, motC;
 int ncycles = 2;
 
@@ -149,6 +151,7 @@ void sendData(){
 	Wire.write(state);
 }
 void yaw() {
+  delay(3000);
     for (int i = MID_PULSE_LENGTH; i <= (MID_PULSE_LENGTH+amplitude); i += 5) {
         motA.writeMicroseconds(i);
         motB.writeMicroseconds(i);
@@ -174,6 +177,7 @@ void yaw() {
 }
 
 void heave() {
+  delay(3000);
     for (int i = MID_PULSE_LENGTH; i <= (MID_PULSE_LENGTH+amplitude); i += 1) {
         motC.writeMicroseconds(i);
         delay(1);
@@ -193,6 +197,7 @@ void heave() {
 }
 
 void surge() {
+  delay(3000);
     for (int i = MID_PULSE_LENGTH; i <= (MID_PULSE_LENGTH+amplitude); i += 5) {
         motA.writeMicroseconds(i);
         int j = MID_PULSE_LENGTH - i + MID_PULSE_LENGTH;
