@@ -75,19 +75,18 @@ double t_now = 0;
 double t_prev = 0;
 unsigned long pid_time = 0; 
 unsigned long time = 0;
-int state = 0;
+uint16_t state = 0;
 
 uint16_t acX=10,acY=10,acZ=10,tmp=10,gyX=10,gyY=10,gyZ=10;
 char cmd = 0;
 
-
-// convert float to byte array  source: http://mbed.org/forum/helloworld/topic/2053/
-typedef union float2bytes_t   // union consists of one variable represented in a number of different ways 
-{ 
+typedef union float2bytes_t { 
   float f; 
   byte b[sizeof(float)]; 
-}; 
-float2bytes_t b2f;
+}; float2bytes_t b2f;
+
+#define PI_PACKET_SIZE 6
+byte i2c_packet[PACKET_SIZE]
 
 int yawController(float yaw);
 
@@ -168,20 +167,7 @@ void loop(void){
 			heave(z_d);
 			break;
 	}
-	/*if (readByte(MPU_ADDR, INT_STATUS) & 0x01) {
-		get_acc(acc_p);
-		acX = (float)acc_p[0]*a_res;
-		acY = (float)acc_p[1]*a_res;
-		acZ = (float)acc_p[2]*a_res;
-		get_gyro(gyr_p);
-		gyX = (float)gyr_p[0]*g_res;
-    	gyY = (float)gyr_p[1]*g_res;
-    	gyZ = (float)gyr_p[2]*g_res;
-		printMPUData();
-		cur_yaw = gyZ*(time-millis()) + cur_yaw;
-		time = millis();
-	}
-	
+	/*	
 	if ( (millis() - pid_time) >= PID_T) {
 		motor_cv = pidController(cur_yaw);
 		//analogWrite(PWM_LEFT, motor_cv);
@@ -193,40 +179,43 @@ void loop(void){
 
 // callback for sending data
 void sendData(){
-	if (state == IDLE) {
-		float p = get_depth();
-		Wire.write(&p, sizeof(float));
-	} else {
-		Wire.write(state);
-	}
+	float2bytes_t p = get_depth();
+	i2c_packet[0] = (state>>8)&0xff;
+	i2c_packet[1] = (state)&0xff;
+	i2c_packet[2] = f2b.b[0];
+	i2c_packet[3] = f2b.b[1];
+	i2c_packet[4] = f2b.b[2];
+	i2c_packet[5] = f2b.b[3];
+	Wire.write(i2c_packet, PI_PACKET_SIZE);
 }
 
 void receiveData(int byteCount){
 
-	while(Wire.available()) {
-		cmd = Wire.read();
-		switch (state){
-			case IDLE:
-			// get command + reference signal
-				break;	
-			case YAWING:
-			// get imu data... then...
-			
-				break;
-			case SURGING:
-			// get imu data
-				break;
-			case HEAVING:
-			// get imu data
-				break;
-		}
+	cmd = Wire.read();
+	println(byteCount);
+	println(cmd)
+	
+	switch(cmd){
+		case REG_GX:
+			while (Wire.available()){
+				gyZ = ((uint16_t)Wire.read() << 8) | (uint16_t)Wire.read();
+			}
+		case REG_AX:
+			while (Wire.available()){
+				acX = ((uint16_t)Wire.read() << 8) | (uint16_t)Wire.read();
+			}
+		case REG_AY:
+			while (Wire.available()){
+				acY = ((uint16_t)Wire.read() << 8) | (uint16_t)Wire.read();
+			}
 	}
+	
 }
 
 float get_depth(){
 	float v = analogRead(PRESSURE_SENSOR_PIN) * ADC_LSB;
-	if (v <= 0.204) return 20;
-	if (v >= 4.896) return 250;
+	if (v <= 0.204) return 20.0;
+	if (v >= 4.896) return 250.0;
 	float P =((v - MIN_OFFSET)/SENSITIVITY) + 20;
 	return (P/(WATER_DENSITY*GRAVITY))*100;	
 }
@@ -260,10 +249,4 @@ int yawController(float yaw) {
     // Return PID Output
     return int(pwm_control_out);
 }
-/*
-uint8_t buf[6];
-	readBytes(MPU_ADDR, GYRO_XHOUT, 6, buf);
-	gy[0] = (int16_t)((buf[0] << 8) | buf[1]);
-	gy[1] = (int16_t)((buf[2] << 8) | buf[3]) ;
-	gy[2] = (int16_t)((buf[4] << 8) | buf[5]) ;
-*/
+
