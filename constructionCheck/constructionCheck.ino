@@ -177,6 +177,8 @@ void loop(void){
 
 }
 
+//TODO: TEST I2C Communication
+
 // callback for sending data
 void sendData(){
 	float2bytes_t p = get_depth();
