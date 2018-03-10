@@ -67,6 +67,7 @@ float yaw = 0;
 float yaw_err = 0; // yaw - yaw_d
 
 float prev_yaw;
+float cur_yaw;
 float i_gain;
 float d_gain;
 float p_gain;
@@ -76,8 +77,19 @@ unsigned long pid_time = 0;
 unsigned long time = 0;
 int state = 0;
 
-float acX=10,acY=10,acZ=10,tmp=10,gyX=10,gyY=10,gyZ=10;
+uint16_t acX=10,acY=10,acZ=10,tmp=10,gyX=10,gyY=10,gyZ=10;
 char cmd = 0;
+
+
+// convert float to byte array  source: http://mbed.org/forum/helloworld/topic/2053/
+typedef union float2bytes_t   // union consists of one variable represented in a number of different ways 
+{ 
+  float f; 
+  byte b[sizeof(float)]; 
+}; 
+float2bytes_t b2f;
+
+int yawController(float yaw);
 
 void setup(){
 	//////// MOTOR SETUP ////////	
@@ -148,6 +160,8 @@ void loop(void){
 			surge(x_d);
 			break;	
 		case YAWING:
+			//cur_yaw = gyZ*(time-millis()) + cur_yaw;
+			//time = millis();
 			yaw(yaw_d);
 			break;
 		case HEAVING:
@@ -180,7 +194,8 @@ void loop(void){
 // callback for sending data
 void sendData(){
 	if (state == IDLE) {
-		Wire.write(get_depth());
+		float p = get_depth();
+		Wire.write(&p, sizeof(float));
 	} else {
 		Wire.write(state);
 	}
@@ -195,7 +210,8 @@ void receiveData(int byteCount){
 			// get command + reference signal
 				break;	
 			case YAWING:
-			// get imu data		
+			// get imu data... then...
+			
 				break;
 			case SURGING:
 			// get imu data
@@ -215,7 +231,7 @@ float get_depth(){
 	return (P/(WATER_DENSITY*GRAVITY))*100;	
 }
 
-int pidController(float yaw) {
+int yawController(float yaw) {
     // Calculate time since last time PID was called (~10ms)
     t_now = (double)millis();
     double dt = t_now - t_prev;
@@ -244,3 +260,10 @@ int pidController(float yaw) {
     // Return PID Output
     return int(pwm_control_out);
 }
+/*
+uint8_t buf[6];
+	readBytes(MPU_ADDR, GYRO_XHOUT, 6, buf);
+	gy[0] = (int16_t)((buf[0] << 8) | buf[1]);
+	gy[1] = (int16_t)((buf[2] << 8) | buf[3]) ;
+	gy[2] = (int16_t)((buf[4] << 8) | buf[5]) ;
+*/
