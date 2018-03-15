@@ -24,18 +24,20 @@
 #define MIDDLE_MOTOR_PIN 10
 
 // Pressure Sensor Params
-#define WATER_DENSITY 1 // g/cm^3
+#define WATER_DENSITY 998.57 // [kg/m^3] @ 18 [deg]
 #define GRAVITY 9.81
 #define PRESSURE_SENSOR_PIN A1
-#define MIN_OFFSET 0.204
-#define FULL_SCALE_OUTPUT 4.896
-#define FULL_SCALE_SPAN 4.692
+#define MIN_OFFSET 0.204 // Vdc
+#define FULL_SCALE_OUTPUT 4.896 // Vdc
+#define FULL_SCALE_SPAN 4.692 // Vdc
 #define SENSITIVITY 0.02
+
 #define ADC_RES 1023
-#define ADC_LSB 0.0049
+#define ADC_LSB 0.00488
 
 #define MIN_PRESSURE 20
 #define MAX_PRESSURE 250
+#define ATM_PRESSURE 100.7 // kPa
 
 #define IDLE 0
 #define SURGING 1
@@ -266,10 +268,11 @@ void receiveData(int byteCount){
 
 float get_depth(){
 	float v = analogRead(PRESSURE_SENSOR_PIN) * ADC_LSB;
-	if (v <= 0.204) return 20.0;
-	if (v >= 4.896) return 250.0;
-	float P =((v - MIN_OFFSET)/SENSITIVITY) + 20;
-	return (P/(WATER_DENSITY*GRAVITY))*100;	
+	if (v < 0.204) return 20.0;
+	if (v > 4.896) return 250.0;
+	//float P =((v - MIN_OFFSET)/SENSITIVITY) + MIN_PRESSURE;
+	float P = (v/SENSITIVITY) + MIN_PRESSURE;
+	return ( 1000*(P-ATM_PRESSURE) / (WATER_DENSITY*GRAVITY) );	
 }
 
 int yaw_controller(float yaw_angle) {
