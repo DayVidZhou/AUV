@@ -42,18 +42,36 @@
 #define YAWING 2
 #define HEAVING 3
 
+#define PI_PACKET_SIZE 5
+#define SLAVE_ADDRESS 0x04
+#define REG_REF_SURGE 0x03
+#define REG_REF_DEPTH 0x04
+#define REG_REF_HEADING 0x05 # Desired heading from LOS path following controller
+#define REG_GX 0x06
+#define REG_GY 0x07
+#define REG_GZ 0x08
+#define REG_AX 0x09
+#define REG_AY 0x0A
+#define REG_AZ 0x0B
+#define REG_X 0x0C
+#define REG_Y 0x0D
+#define REG_Z 0x0E
+#define REG_ALL_IMU 0x0F
+#define REG_R_ALL 0x10
+
 Servo motA, motB, motC;
 
 const int thrust_delay = 10; // miliseconds
 const int thrust_step = 5;
 const int pulse_delay = 250;
 
+// YAW
 const float Kp = 0;
 const float Ki = 0;
 const float Kd = 0;
 const float Km = 0;
 const float m = 0;
-const time_const = 0;
+const float time_const = 0;
 const float K = 0;
 
 const float max_r = 0;
@@ -62,7 +80,7 @@ const float max_yaw = 89;
 float r_d = 0;
 float r = 0;
 float r_err = 0; // r - rd
-float yaw_d = 0
+float yaw_d = 0;
 float yaw = 0; 
 float yaw_err = 0; // yaw - yaw_d
 
@@ -75,22 +93,39 @@ double t_now = 0;
 double t_prev = 0;
 unsigned long pid_time = 0; 
 unsigned long time = 0;
-uint16_t state = 0;
+int state = 0;
+volatile float cur_depth = 0;
 
-uint16_t acX=10,acY=10,acZ=10,tmp=10,gyX=10,gyY=10,gyZ=10;
+float acX=10,acY=10,acZ=10,tmp=10,gyX=10,gyY=10,gyZ=10;
 char cmd = 0;
 
 typedef union float2bytes_t { 
   float f; 
   byte b[sizeof(float)]; 
-}; float2bytes_t b2f;
+}; //float2bytes_t b2f;
 
-#define PI_PACKET_SIZE 6
-byte i2c_packet[PACKET_SIZE]
+typedef struct state_info{
+	int cur_state;
+	int prev_state; // random / should be replaced with other 2 byte padding
+	float depth;
+} state_info_t;
 
-int yawController(float yaw);
+typedef union i2c_packet {
+	state_info_t data;
+	byte packet[sizeof(state_info_t)];
+}i2c_packet_t;
+
+i2c_packet_t i2c_send;
+
+byte imu_data[24]; // 6axis * (4bytes/float)
+float imu_data_f[6];
+int yaw_controller(float yaw);
+void process_imu_data(int type,int i);
 
 void setup(){
+
+	Serial.begin(9600);
+	
 	//////// MOTOR SETUP ////////	
 	motA.attach(RIGHT_MOTOR_PIN, MIN_PULSE_LENGTH, MAX_PULSE_LENGTH); // right
     motB.attach(LEFT_MOTOR_PIN, MIN_PULSE_LENGTH, MAX_PULSE_LENGTH); // left 
@@ -107,7 +142,8 @@ void setup(){
 	motA.writeMicroseconds(MID_PULSE_LENGTH);
 	motB.writeMicroseconds(MID_PULSE_LENGTH);
 	motC.writeMicroseconds(MID_PULSE_LENGTH);
-
+	
+	state = IDLE;
 }
 
 void surge(int input_signal) {
@@ -123,7 +159,7 @@ void surge(int input_signal) {
 	motB.writeMicroseconds(MID_PULSE_LENGTH);
 }
 
-void yaw(int input_signal) {
+void yaw_rov(int input_signal) {
     for (int i = MID_PULSE_LENGTH; i <= (MID_PULSE_LENGTH+input_signal); i += thrust_step) {
         motA.writeMicroseconds(i);
         motB.writeMicroseconds(i);
@@ -144,7 +180,7 @@ void heave(int input_signal) {
 }
 
 void loop(void){
-	
+	cur_depth = get_depth();	
 	switch (state){
 		case IDLE:
 			if (cmd == SURGING){
@@ -156,15 +192,15 @@ void loop(void){
 			}
 			break;
 		case SURGING:
-			surge(x_d);
+			//surge(x_d);
 			break;	
 		case YAWING:
 			//cur_yaw = gyZ*(time-millis()) + cur_yaw;
 			//time = millis();
-			yaw(yaw_d);
+			//yaw(yaw_d);
 			break;
 		case HEAVING:
-			heave(z_d);
+			//heave(z_d);
 			break;
 	}
 	/*	
@@ -181,35 +217,49 @@ void loop(void){
 
 // callback for sending data
 void sendData(){
-	float2bytes_t p = get_depth();
-	i2c_packet[0] = (state>>8)&0xff;
-	i2c_packet[1] = (state)&0xff;
-	i2c_packet[2] = f2b.b[0];
-	i2c_packet[3] = f2b.b[1];
-	i2c_packet[4] = f2b.b[2];
-	i2c_packet[5] = f2b.b[3];
-	Wire.write(i2c_packet, PI_PACKET_SIZE);
+	//float2bytes_t p;
+	//p.f = get_depth();
+	if (cmd == REG_R_ALL){
+		i2c_send.data.cur_state = state;
+		i2c_send.data.prev_state = 10;
+		i2c_send.data.depth = cur_depth;
+		//Serial.println("requested");
+		//Serial.println(sizeof(state_info_t));
+		Wire.write(i2c_send.packet, sizeof(state_info_t));
+	}
 }
 
 void receiveData(int byteCount){
-
+	int i = 0;
 	cmd = Wire.read();
-	println(byteCount);
-	println(cmd)
+	//Serial.print("Bytes Recv: ");
+	//Serial.println(byteCount);
+	
 	
 	switch(cmd){
-		case REG_GX:
+		case REG_GZ:
 			while (Wire.available()){
 				gyZ = ((uint16_t)Wire.read() << 8) | (uint16_t)Wire.read();
 			}
+			break;
 		case REG_AX:
 			while (Wire.available()){
 				acX = ((uint16_t)Wire.read() << 8) | (uint16_t)Wire.read();
 			}
+			break;
 		case REG_AY:
 			while (Wire.available()){
 				acY = ((uint16_t)Wire.read() << 8) | (uint16_t)Wire.read();
 			}
+			break;
+		case REG_ALL_IMU:
+			Wire.read();
+			while (Wire.available()) {
+				imu_data[i] = Wire.read();
+				i++;
+			}
+			process_imu_data(REG_ALL_IMU,i);
+			break;
 	}
 	
 }
@@ -222,33 +272,50 @@ float get_depth(){
 	return (P/(WATER_DENSITY*GRAVITY))*100;	
 }
 
-int yawController(float yaw) {
+int yaw_controller(float yaw_angle) {
     // Calculate time since last time PID was called (~10ms)
     t_now = (double)millis();
     double dt = t_now - t_prev;
  
     // Calculate Error
-    float e = SP - yaw;
+    float e = SP - yaw_angle;
  
     // Calculate our PID terms
-    p_gain = Kp * error;
-    i_gain += Ki * error * dt;
+    p_gain = Kp * e;
+    i_gain += Ki * e * dt;
     d_gain = Kd * (yaw - prev_yaw) / dt; 
  
-    prev_yaw = yaw;
+    prev_yaw = yaw_angle;
     t_prev = t_now;
  
     // Set PWM Value
     float pwm_control_out = p_gain + i_gain - d_gain;
  
     // Limits PID to Yaw angle
-    if (pwm_control_out > MAX_YAW) {
-		pwm_control_out = MAX_YAW;
-    } else if (pwm_control_out < -MAX_YAW) {
-		pwm_control_out = -MAX_YAW; 
+    if (pwm_control_out > max_yaw) {
+		pwm_control_out = max_yaw;
+    } else if (pwm_control_out < -max_yaw) {
+		pwm_control_out = -max_yaw; 
  	}
  
     // Return PID Output
     return int(pwm_control_out);
 }
 
+void process_imu_data(int type, int sz){
+	int i = 0;
+	float2bytes_t b2f;
+	switch(type){
+		case REG_ALL_IMU:
+			for (i = 0; i < (sz>>2); i++){
+				b2f.b[0] = imu_data[i*4];
+				b2f.b[1] = imu_data[i*4+1];
+				b2f.b[2] = imu_data[i*4+2];
+				b2f.b[3] = imu_data[i*4+3];
+				imu_data_f[i] = b2f.f;
+				//Serial.println(imu_data_f[i],4);
+			}
+			Serial.println(imu_data_f[2],4);
+			break;
+	}
+}
