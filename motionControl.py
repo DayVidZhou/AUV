@@ -64,7 +64,9 @@ class IO(threading.Thread):
 def input_handler(stdscr):
     stdscr.clear()
     stdscr.refresh()
-    curses.halfdelay(3)
+    stdscr.addstr(SCREEN_Y,SCREEN_X,"AUTONOMOUS MODE...", curses.A_BLINK)
+    first_input = stdscr.getch()
+    curses.halfdelay(5)
     while True:
         k = stdscr.getch()
         if (k == curses.KEY_UP):

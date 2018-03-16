@@ -117,9 +117,18 @@ typedef union i2c_packet {
 	byte packet[sizeof(state_info_t)];
 }i2c_packet_t;
 
+typedef struct position{
+	float x;
+	float y;
+	float z;
+} position_t;
+
+position_t cur_pos;
+position_t ref_pos;
+
 i2c_packet_t i2c_send;
 
-byte imu_data[24]; // 6axis * (4bytes/float)
+byte imu_data_b[24]; // 6axis * (4bytes/float)
 float imu_data_f[6];
 int yaw_controller(float yaw);
 void process_imu_data(int type,int i);
@@ -236,8 +245,7 @@ void receiveData(int byteCount){
 	cmd = Wire.read();
 	//Serial.print("Bytes Recv: ");
 	//Serial.println(byteCount);
-	
-	
+
 	switch(cmd){
 		case REG_GZ:
 			while (Wire.available()){
@@ -257,13 +265,13 @@ void receiveData(int byteCount){
 		case REG_ALL_IMU:
 			Wire.read();
 			while (Wire.available()) {
-				imu_data[i] = Wire.read();
+				imu_data_b[i] = Wire.read();
 				i++;
 			}
 			process_imu_data(REG_ALL_IMU,i);
 			break;
 	}
-	
+
 }
 
 float get_depth(){
@@ -311,14 +319,13 @@ void process_imu_data(int type, int sz){
 	switch(type){
 		case REG_ALL_IMU:
 			for (i = 0; i < (sz>>2); i++){
-				b2f.b[0] = imu_data[i*4];
-				b2f.b[1] = imu_data[i*4+1];
-				b2f.b[2] = imu_data[i*4+2];
-				b2f.b[3] = imu_data[i*4+3];
+				b2f.b[0] = imu_data_b[i*4];
+				b2f.b[1] = imu_data_b[i*4+1];
+				b2f.b[2] = imu_data_b[i*4+2];
+				b2f.b[3] = imu_data_b[i*4+3];
 				imu_data_f[i] = b2f.f;
-				//Serial.println(imu_data_f[i],4);
 			}
-			Serial.println(imu_data_f[2],4);
+			//Serial.println(imu_data_f[2],4);
 			break;
 	}
 }
