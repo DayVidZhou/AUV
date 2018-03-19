@@ -1,32 +1,16 @@
 #include "arduinoController.h"
+
+
+
 Servo motA, motB, motC;
 
 const int thrust_delay = 5; // miliseconds
 const int thrust_step = 1;
 const int pulse_delay = 100;
 
-pid_params_t yaw_pid = {	
-							.wb = Wb_YAW, 
-							.damp_ratio = 1.0,
-							.wn = 1.56*Wb_YAW,
-							.T = T_yaw,
-							.K = K_yaw,  
-							.m = Iz - N_WDOT,
-							.Km = 0,
-							.Kp = (m + Km) * wn*wn,
-							.Kd = 2*wn*damp_ratio*(m+Km) - (m/T),
-							.Ki = (wn/10.0)*Kp};
-pid_params_t heave_pid = {
-							.wb = Wb_HEAVE,
-							.damp_ratio = 1.0,
-							.wn = 1.56*Wb_HEAVE,
-							.T = T_HEAVE,
-							.K = K_HEAVE,  
-							.m = m - N_WDOT,
-							.Km = 0,
-							.Kp = (m + Km) * wn*wn,
-							.Kd = 2*wn*damp_ratio*(m+Km) - (m/T),
-							.Ki = (wn/10.0)*Kp};
+pid_params_t yaw_pid = {Wb_YAW, 1.0,T_YAW,K_YAW, 0};
+							
+pid_params_t heave_pid = {Wb_HEAVE,1.0,T_HEAVE,K_HEAVE, 0};
 State state = IDLE;
 
 //char cmd = 0;
@@ -60,6 +44,7 @@ void lr_motor_drive(int, int);
 void surge(int);
 void yaw(int);
 void heave(int);
+inline void read_bytes(byte bytes[4]);
 
 void setup(){
 
@@ -83,6 +68,17 @@ void setup(){
 	motC.writeMicroseconds(MID_PULSE_LENGTH);
 	
 	state = IDLE;
+	user.mode = 1;
+	yaw_pid.Kp = (yaw_pid.m + yaw_pid.Km) * yaw_pid.wn*yaw_pid.wn;
+	yaw_pid.Kd = 2*yaw_pid.wn*yaw_pid.damp_ratio*(yaw_pid.m+yaw_pid.Km) - (yaw_pid.m/yaw_pid.T);
+	yaw_pid.Ki = (yaw_pid.wn/10.0)*yaw_pid.Kp;
+	yaw_pid.m = Iz - N_RDOT;
+	yaw_pid.wn = 1.56*Wb_YAW;
+	heave_pid.Kp = (heave_pid.m + heave_pid.Km) * heave_pid.wn*heave_pid.wn;
+	heave_pid.Kd = 2*heave_pid.wn*heave_pid.damp_ratio*(heave_pid.m+heave_pid.Km) - (heave_pid.m/heave_pid.T);
+	heave_pid.Ki = (heave_pid.wn/10.0)*heave_pid.Kp;
+	heave_pid.m = M - N_WDOT;
+	heave_pid.wn = 1.56*Wb_HEAVE;
 }
 
 void loop(void){
@@ -93,9 +89,9 @@ void loop(void){
 	heave_pid_ctrl.Compute();
 	
 	cur_mot.yaw_thrust = ((yaw_pid.m + yaw_pid.Km) * (accel_d.yaw + (vel_d.yaw/yaw_pid.T))) - yaw_pid_output - (yaw_pid.Km * accel.yaw);
-	cur_mot.heave_thrust = ((heave_pid.m + heave_pid.Km) * (accel_d.yaw + (vel_d.heave/heave_pid.T))) - heave_pid_output - (heave_pid.Km * accel.heave) - GRAVITY_OFFSET;
+	cur_mot.heave_thrust = ((heave_pid.m + heave_pid.Km) * (accel_d.z + (vel_d.z/heave_pid.T))) - heave_pid_output - (heave_pid.Km * accel.z) - GRAVITY_OFFSET;
 	
-	if (user.mode == MANUAL) {
+	if (user.mode) {
 		switch(user.direction) {
 			case 0: // left
 				state = IDLE;
@@ -111,7 +107,8 @@ void loop(void){
 				break;
 			case 5:
 			case 6:
-				state = YAWING
+				state = YAWING;
+				break;
 		}
 
 		switch (state){
@@ -141,7 +138,7 @@ void loop(void){
 
 void sendData(){ // i2c request callback
 	
-	if (cmd == REG_R_ALL){
+	if (cmd == SEND_ALL){
 		i2c_send.data.cur_state = (byte)state;
 		i2c_send.data.prev_state = 0; // tmp
 		i2c_send.data.depth = mpx4250_depth;
@@ -155,32 +152,32 @@ void receiveData(int byteCount){ // i2c recieve callback
 	float2bytes_t b2f;
 
 	switch(cmd){
-		case REG_ALL_IMU:
+		case ALL_IMU:
 			Wire.read();
 			while (Wire.available()) {
 				imu_data_b[i] = Wire.read();
 				i++;
 			}
-			process_imu_data(REG_ALL_IMU,i);
+			process_imu_data(ALL_IMU,i);
 			break;
 
-		case REG_USER_CMD:
+		case USER_CMD:
 			Wire.read();
 			user.direction = ((uint16_t)Wire.read() << 8) | Wire.read();
 			user.power = ((uint16_t)Wire.read() << 8) | Wire.read();
 			break;
 
-		case REG_REF_TRAG:
+		case REF_TRAG:
 			Wire.read();
-			READ_BYTES(b2f.b); pos_d.x = b2f.f;
-			READ_BYES(b2f.b); pos_d.z = b2f.f;
-			READ_BYTES(b2f.b); pos_d.yaw = b2f.f;
-			READ_BYTES(b2f.b); vel_d.x = b2f.f;
-			READ_BYTES(b2f.b); vel_d.z = b2f.f;
-			READ_BYTES(b2f.b); vel_d.yaw = b2f.f;
-			READ_BYTES(b2f.b); accel_d.x = b2f.f;
-			READ_BYTES(b2f.b); accel_d.z = b2f.f;
-			READ_BYTES(b2f.b); accel_d.yaw = b2f.f;
+			read_bytes(b2f.b); pos_d.x = (double)b2f.f;
+			read_bytes(b2f.b); pos_d.z = (double)b2f.f;
+			read_bytes(b2f.b); pos_d.yaw = (double)b2f.f;
+			read_bytes(b2f.b); vel_d.x = (double)b2f.f;
+			read_bytes(b2f.b); vel_d.z = (double)b2f.f;
+			read_bytes(b2f.b); vel_d.yaw = (double)b2f.f;
+			read_bytes(b2f.b); accel_d.x = (double)b2f.f;
+			read_bytes(b2f.b); accel_d.z = (double)b2f.f;
+			read_bytes(b2f.b); accel_d.yaw = (double)b2f.f;
 			break;
 		case CHANGE_MODE:
 			user.mode = Wire.read();
@@ -198,49 +195,20 @@ float get_depth(){
 	return ( 1000*(P-ATM_PRESSURE) / (WATER_DENSITY*GRAVITY) );	
 }
 
-int yaw_controller(float yaw_angle) {
-    // Calculate time since last time PID was called (~10ms)
-    t_now = (double)millis();
-    double dt = t_now - t_prev;
- 
-    // Calculate Error
-    float e = SP - yaw_angle;
- 
-    // Calculate our PID terms
-    p_gain = Kp * e;
-    i_gain += Ki * e * dt;
-    d_gain = Kd * (yaw - prev_yaw) / dt; 
- 
-    prev_yaw = yaw_angle;
-    t_prev = t_now;
- 
-    // Set PWM Value
-    float pwm_control_out = p_gain + i_gain - d_gain;
- 
-    // Limits PID to Yaw angle
-    if (pwm_control_out > max_yaw) {
-		pwm_control_out = max_yaw;
-    } else if (pwm_control_out < -max_yaw) {
-		pwm_control_out = -max_yaw; 
- 	}
- 
-    // Return PID Output
-    return int(pwm_control_out);
-}
 
 void process_imu_data(int type, int sz){
 	int i = 0;
 	float2bytes_t b2f;
-	float * p = &pos;
+	double * p = &(pos.x);
 	switch(type){
-		case REG_ALL_IMU:
+		case ALL_IMU:
 			for (i = 0; i < (sz>>2); i++){
 				b2f.b[0] = imu_data_b[i*4];
 				b2f.b[1] = imu_data_b[i*4+1];
 				b2f.b[2] = imu_data_b[i*4+2];
 				b2f.b[3] = imu_data_b[i*4+3];
 				imu_data_f[i] = b2f.f;
-				*p = b2f.f;
+				*p = (double)b2f.f;
 				p++;
 			}
 			//Serial.println(imu_data_f[2],4);
@@ -331,9 +299,9 @@ void lr_motor_drive(int left, int right) {
 void heave(int thrust) {
 
 	int dc = thrust_step;
-	int input = thrust / K_heave;
+	int input = thrust / K_HEAVE;
 
-	if ( (input * cur_mot.center) < 0) 
+	if ( (input * cur_mot.center) < 0) {
 		motC.writeMicroseconds(MID_PULSE_LENGTH);
 		cur_mot.center = MID_PULSE_LENGTH;
 	}
@@ -370,3 +338,10 @@ double saturate(int type, double input) {
 			return constrain(input, -1*SURGE_ACCEL_D_MAX, SURGE_ACCEL_D_MAX);
 	}
 }
+
+inline void read_bytes(byte bytes[4]) {
+							bytes[0] = Wire.read();
+							bytes[1] = Wire.read();
+							bytes[2] = Wire.read();
+							bytes[3] = Wire.read();
+							}

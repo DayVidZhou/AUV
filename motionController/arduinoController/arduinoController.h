@@ -64,13 +64,15 @@
 // I2C constants
 #define SLAVE_ADDRESS 0x04
 #define SEND_SIZE 8 // bytes
-
-#define READ_BYTES(bytes) do {\
+/*
+#define READ_BYTES(bytes) \
+						do {\
 							bytes[0] = Wire.read();\
 							bytes[1] = Wire.read();\
 							bytes[2] = Wire.read();\
 							bytes[3] = Wire.read();\
 							} while(0)
+*/
 // I2C commands
 enum I2C_CMD {
 	ALL_IMU,
@@ -89,13 +91,13 @@ enum State {
 };
 
 // ROV MODE
-enum {
+/*enum Mode {
 	AUTONOMOUS,
 	MANUAL
-};
+};*/
 
 typedef union float2bytes_t { 
-  float f; 
+  float f;
   byte b[sizeof(float)]; 
 }; //float2bytes_t b2f;
 
@@ -111,12 +113,12 @@ typedef union i2c_packet {
 }i2c_packet_t;
 
 typedef struct position{
-	float x;
-	float y;
-	float z;
-	float roll;
-	float pitch;
-	float yaw;
+	double x;
+	double y;
+	double z;
+	double roll;
+	double pitch;
+	double yaw;
 } position_t;
 
 typedef struct user_cmd{
@@ -128,10 +130,10 @@ typedef struct user_cmd{
 typedef struct pid_params {
 	double wb;
 	double damp_ratio;
-	double wn;
-	double Km;
-	double K;
 	double T;
+	double K;
+	double Km;
+	double wn;
 	double m;
 	double Kp;
 	double Ki;
