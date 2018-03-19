@@ -150,6 +150,8 @@ void start_test(void){
 void sendData(){
 	Wire.write(state);
 }
+
+// turns left then right
 void yaw() {
   delay(3000);
     for (int i = MID_PULSE_LENGTH; i <= (MID_PULSE_LENGTH+amplitude); i += 5) {
@@ -176,6 +178,7 @@ void yaw() {
 
 }
 
+// up then down 
 void heave() {
   delay(3000);
     for (int i = MID_PULSE_LENGTH; i <= (MID_PULSE_LENGTH+amplitude); i += 1) {
@@ -196,6 +199,7 @@ void heave() {
 	delay(pulse_delay);
 }
 
+// fwd then rwd
 void surge() {
   delay(3000);
     for (int i = MID_PULSE_LENGTH; i <= (MID_PULSE_LENGTH+amplitude); i += 5) {

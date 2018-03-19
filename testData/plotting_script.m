@@ -7,7 +7,8 @@ az = yaw_data(:,4);
 gx = yaw_data(:,5);
 gy = yaw_data(:,6);
 gz = yaw_data(:,7);
-
+gz_offset = mean(gz(1:400));
+gz = gz - gz_offset;
 figure
 title('Dynamic Response to 100 [ms] Yaw input Signal for 1.5 ms')
 subplot(3,1,1)
