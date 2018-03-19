@@ -5,17 +5,16 @@ import argparse
 
 ap=argparse.ArgumentParser()
 ap.add_argument("-n", "--name", required = True, help = "name of video")
+ap.add_argument("-l", "--length", required = True, help = "length")
 args = vars(ap.parse_args())
 vidname = args["name"] + ".h264"
 
-
 camera = picamera.PiCamera()
+camera.framerate = 25
 
 camera.start_recording(vidname)
-while True:
-    c = cv2.waitKey(1) & 0xFF
-    if c:
-        break
+
+time.sleep(args["length"])
 
 camera.stop_recording()
 
