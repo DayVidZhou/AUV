@@ -6,31 +6,15 @@ from mpu6050 import mpu6050
 import queue
 import curses
 
-imu6050 = mpu6050(0x68)
-
-# for RPI version 1, use "bus = smbus.SMBus(0)"
-bus = smbus.SMBus(1)
 
 ARDUINO_ADDR = 0x04
-
 # read only registers
-REG_R_ALL = 0x10 # reads everything at once
-ARDUINO_PACKET_SIZE = 8
-
+REG_R_ALL = 0x03 # reads everything at once
+ARDUINO_PACKET_SIZE = 8 # Read size
 # write only registers
-REG_REF_SURGE = 0x03
-REG_REF_DEPTH = 0x04
-REG_REF_HEADING = 0x05 # Desired heading from LOS path following controller
-REG_GX = 0x06
-REG_GY = 0x07
-REG_GZ = 0x08
-REG_AX = 0x09
-REG_AY = 0x0A
-REG_AZ = 0x0B
-REG_X = 0x0C
-REG_Y = 0x0D
-REG_Z = 0x0E
-REG_IMU_ALL = 0x0F
+REG_IMU_ALL = 0x00 # Send all IMU data
+REG_REF_TRAG = 0x01 # Desired tragectory
+REG_USER_CMD = 0x02 # Send manual user command
 
 IDLE = 0x00
 FWD_SURGE = 0x01
@@ -42,6 +26,8 @@ YAW_RIGHT = 0x06
 SHUT_DWN = 0xff
 
 cmd = IDLE
+imu6050 = mpu6050(0x68)
+bus = smbus.SMBus(1) # for RPI version 1, use "bus = smbus.SMBus(0)"
 
 def get_imu_data():
     data = imu6050.get_all_data()
@@ -105,5 +91,3 @@ if __name__ == '__main__':
     IO.start()
     curses.wrapper(input_handler)
 
-
-main()
