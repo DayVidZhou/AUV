@@ -40,6 +40,8 @@ class IO(threading.Thread):
         cmd_arr = [0, 100]
         while True:
             cmd_arr[0] = cmd
+            if cmd == 0x02 or cmd == 0x04 or cmd == 0x06:
+                cmd_arr[1] = cmd_arr[1]*-1
             imu_fifo.put(get_imu_data())
             motion = imu_fifo.get()
             float2bytes = struct.pack('=6f', motion['ax'], motion['ay'], motion['az'], motion['gx'], motion['gy'], motion['gz'])
