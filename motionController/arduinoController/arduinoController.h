@@ -17,16 +17,22 @@
 #define K_a 1 // right motor input gain
 #define K_b 1 // left motor input gain
 
+#define GRAVITY_OFFSET 0 // GRAVITY - BOUYANCY
+
 #define Wb_YAW 0.1
 #define Wb_HEAVE 0.1
 #define T_HEAVE 0 // heave time constant
-#define T_YAW 0 // yaw time constant
+#define T_YAW 0.431 // yaw time constant
 #define T_SURGE 0 // surge input gain
-#define K_YAW 1.09 // yaw gain for an input of 55 microseconds
+#define K_YAW 1.13 // yaw gain for an input of 55 microseconds
 #define K_HEAVE 0
 
 #define YAW_RATE_D_MAX 1.0
 #define YAW_ACCEL_D_MAX 0.5
+#define HEAVE_RATE_D_MAX 0.2
+#define HEAVE_ACCEL_D_MAX 0.1
+#define SURGE_RATE_D_MAX 1.6
+#define SURGE_ACCEL_D_MAX 0.5
 
 // Motor Params
 #define MIN_PULSE_LENGTH 1000 // Minimum pulse length in µs
@@ -115,7 +121,7 @@ typedef struct position{
 
 typedef struct user_cmd{
 	uint8_t mode; // autonomous = 0 or manual = 1
-	uint8_t direction; // if mode == 1 then set respective motors to power
+	uint16_t direction; // if mode == 1 then set respective motors to power
 	uint16_t power; // if mode == 1 then set current motors to power, otherwise ignore
 } user_cmd_t;
 
