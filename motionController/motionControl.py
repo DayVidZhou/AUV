@@ -37,15 +37,17 @@ class IO(threading.Thread):
     def run(self):
         imu_fifo = queue.Queue() # {'ax','ay','az','gx','gy','gz'}
         depth_buf = queue.Queue()
-
-        imu_fifo.put(get_imu_data())
-        motion = imu_fifo.get()
-        float2bytes = struct.pack('=6f', motion['ax'], motion['ay'], motion['az'], motion['gx'], motion['gy'], motion['gz'])
-        bus.write_block_data(ARDUINO_ADDR, REG_IMU_ALL, list(float2bytes))
-
-        arduino_packet = bus.read_i2c_block_data(ARDUINO_ADDR, REG_R_ALL, ARDUINO_PACKET_SIZE)
-        arduino_packet_unpacked = struct.unpack('=hhf',bytes(arduino_packet))
-        print(arduino_packet_unpacked)
+        cmd_arr = [0, 100]
+        while True:
+            cmd_arr[0] = cmd
+            imu_fifo.put(get_imu_data())
+            motion = imu_fifo.get()
+            float2bytes = struct.pack('=6f', motion['ax'], motion['ay'], motion['az'], motion['gx'], motion['gy'], motion['gz'])
+            bus.write_block_data(ARDUINO_ADDR, REG_IMU_ALL, list(float2bytes))
+            bus.write_block_data(ARDUINO_ADDR, REG_USER_CMD, cmd_arr)
+            arduino_packet = bus.read_i2c_block_data(ARDUINO_ADDR, REG_R_ALL, ARDUINO_PACKET_SIZE)
+            arduino_packet_unpacked = struct.unpack('=hhf',bytes(arduino_packet))
+            #print(arduino_packet_unpacked)
 
 def input_handler(stdscr):
     stdscr.clear()
@@ -86,6 +88,7 @@ def input_handler(stdscr):
         if(k == ord('q')):
             cmd = SHUT_DWN
             break;
+        
 
 if __name__ == '__main__':
     IO.start()
