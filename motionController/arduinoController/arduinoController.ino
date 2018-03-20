@@ -150,7 +150,8 @@ void receiveData(int byteCount){ // i2c recieve callback
 	int i = 0;
 	cmd = Wire.read();
 	float2bytes_t b2f;
-
+	Serial.println(cmd);
+	Serial.println(byteCount);
 	switch(cmd){
 		case ALL_IMU:
 			Wire.read();
@@ -162,9 +163,15 @@ void receiveData(int byteCount){ // i2c recieve callback
 			break;
 
 		case USER_CMD:
-			Wire.read();
-			user.direction = ((uint16_t)Wire.read() << 8) | Wire.read();
-			user.power = ((uint16_t)Wire.read() << 8) | Wire.read();
+			//Wire.read();
+			//user.direction = ((uint16_t)Wire.read() << 8) | Wire.read();
+			//user.power = ((uint16_t)Wire.read() << 8) | Wire.read();
+			user.power = (Wire.read());
+			user.direction = Wire.read();
+			Serial.print("direction: ");
+			Serial.print(user.direction);
+			Serial.print(" power: ");
+			Serial.println(user.power);
 			break;
 
 		case REF_TRAG:
