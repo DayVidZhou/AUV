@@ -7,6 +7,16 @@ az = yaw_data(:,4);
 gx = yaw_data(:,5);
 gy = yaw_data(:,6);
 gz = yaw_data(:,7);
+max_gz = max(gz)
+timeconst = 431.3433;
+t_i1 = 0;
+t_i2 = 0;
+for i = 1:length(gz)
+    if ((gz(i) < 40.2405) && (gz(i) > 39.4437))
+        t_i = i;
+        break;
+    end
+end
 gz_offset = mean(gz(1:400));
 gz = gz - gz_offset;
 figure
