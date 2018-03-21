@@ -75,13 +75,13 @@ def io_thread():
                 print( e)
                 cmd_dir = IDLE
             try:
-                chksum = -7 # cmd + size + data
+                chksum = 6 # cmd + size + data
                 short2bytes = struct.pack('=hhb', cmd_dir,cmd_pwr, chksum)
                 bus.write_block_data(ARDUINO_ADDR, REG_USER_CMD, list(short2bytes))
             except IOError as e:
                 print (e)
+                time.sleep(1)
                 subprocess.call(['i2cdetect', '-y', '1'])
-                time.sleep(0.5)
             
 
         #imu_fifo.put(get_imu_data())
@@ -104,7 +104,7 @@ def input_handler(stdscr):
         k = stdscr.getch()
         if (k == curses.KEY_UP):
             cmd = FWD_SURGE
-            #stdscr.clear()
+            stdscr.clear()
             stdscr.addstr(20,70,"SURGE FWD")
         elif (k == curses.KEY_DOWN):
             cmd = RWD_SURGE
@@ -137,8 +137,6 @@ def input_handler(stdscr):
         
 
 if __name__ == '__main__':
-    #io = Thread(target=io_thread)
-    #io.start()
     _thread.start_new_thread(io_thread, ())
     if (user_mode == True):
         curses.wrapper(input_handler)
