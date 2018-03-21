@@ -61,7 +61,7 @@ def io_thread():
     imu_fifo = queue.Queue() # {'ax','ay','az','gx','gy','gz'}
     depth_buf = queue.Queue()
     cmd_dir = IDLE
-    cmd_pwr = 60
+    cmd_pwr = 100
     try:
         bus.write_word_data(ARDUINO_ADDR, REG_USER_CMD, (cmd_dir<<8)|cmd_pwr)
     except IOError as ioe:
