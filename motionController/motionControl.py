@@ -1,11 +1,13 @@
+#from smbus2 import SMBus
 import smbus
+import _thread
 import subprocess
 #import _thread
-from threading import Thread
+#from threading import Thread
 import struct
 import time
-from mpu6050 import mpu6050
-import Queue as queue # change this
+#from mpu6050 import mpu6050
+import queue # change this
 import curses
 
 """
@@ -47,7 +49,7 @@ SCREEN_X = 70
 SCREEN_Y = 20
 
 user_mode = True
-imu6050 = mpu6050(0x68)
+#imu6050 = mpu6050(0x68)
 bus = smbus.SMBus(1) # for RPI version 1, use "bus = smbus.SMBus(0)"
 user_cmd_fifo = queue.Queue()
 
@@ -63,23 +65,21 @@ def io_thread():
     try:
         bus.write_word_data(ARDUINO_ADDR, REG_USER_CMD, (cmd_dir<<8)|cmd_pwr)
     except IOError as ioe:
-        print(ioe)
+        print( ioe)
 
     while True:
         if (user_mode == True):
             try:
                 cmd_dir = user_cmd_fifo.get(timeout=0.5)
             except queue.Empty as e:
-                print(e)
+                print( e)
                 cmd_dir = IDLE
             try:
-                chksum = -4
+                chksum = -7 # cmd + size + data
                 short2bytes = struct.pack('=hhb', cmd_dir,cmd_pwr, chksum)
-                #print(short2bytes)
                 bus.write_block_data(ARDUINO_ADDR, REG_USER_CMD, list(short2bytes))
-                #bus.write_word_data(ARDUINO_ADDR, REG_USER_CMD, (cmd_dir<<8)|cmd_pwr)
             except IOError as e:
-                print(e)
+                print (e)
                 subprocess.call(['i2cdetect', '-y', '1'])
                 time.sleep(0.5)
             
@@ -137,9 +137,9 @@ def input_handler(stdscr):
         
 
 if __name__ == '__main__':
-    io = Thread(target=io_thread)
-    io.start()
-    #_thread.start_new_thread(run, ())
+    #io = Thread(target=io_thread)
+    #io.start()
+    _thread.start_new_thread(io_thread, ())
     if (user_mode == True):
         curses.wrapper(input_handler)
 
