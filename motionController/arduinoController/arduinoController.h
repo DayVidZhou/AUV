@@ -25,7 +25,7 @@
 #define T_YAW 0.431 // yaw time constant
 #define T_SURGE 0 // surge input gain
 #define K_YAW 1.13 // yaw gain for an input of 55 microseconds
-#define K_HEAVE 0
+#define K_HEAVE 1
 
 #define YAW_RATE_D_MAX 1.0
 #define YAW_ACCEL_D_MAX 0.5
@@ -95,7 +95,16 @@ enum State {
 	AUTONOMOUS,
 	MANUAL
 };*/
-
+enum ManualDir {
+	STOP,
+	FWD_SURGE,
+	RWD_SURGE,
+	UP_HEAVE,
+	DWN_HEAVE,
+	YAW_LEFT,
+	YAW_RIGHT,
+	SHUT_DWN = 0xff
+};
 typedef union float2bytes_t { 
   float f;
   byte b[sizeof(float)]; 
@@ -123,8 +132,8 @@ typedef struct position{
 
 typedef struct user_cmd{
 	uint8_t mode; // autonomous = 0 or manual = 1
-	uint16_t direction; // if mode == 1 then set respective motors to power
-	uint16_t power; // if mode == 1 then set current motors to power, otherwise ignore
+	int16_t direction; // if mode == 1 then set respective motors to power
+	int16_t power; // if mode == 1 then set current motors to power, otherwise ignore
 } user_cmd_t;
 
 typedef struct pid_params {

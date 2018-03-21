@@ -1,7 +1,5 @@
 #include "arduinoController.h"
 
-
-
 Servo motA, motB, motC;
 
 const int thrust_delay = 5; // miliseconds
@@ -30,9 +28,11 @@ mot_sig_t cur_mot;
 i2c_packet_t i2c_send;
 byte imu_data_b[24]; // 6axis * (4bytes/float)
 float imu_data_f[6]; // TODO: get rid of this
+byte i2c_buffer[32];
 float mpx4250_depth = 0;
 double yaw_pid_output;
 double heave_pid_output;
+int user_power;
 
 PID yaw_pid_ctrl(&(yaw_pid_output), &(pos.yaw), &(pos_d.yaw), yaw_pid.Kp, yaw_pid.Ki, yaw_pid.Kd, DIRECT);
 PID heave_pid_ctrl(&(heave_pid_output), &(pos.z), &(pos_d.z), heave_pid.Kp, heave_pid.Ki, heave_pid.Kd, DIRECT);
@@ -79,6 +79,9 @@ void setup(){
 	heave_pid.Ki = (heave_pid.wn/10.0)*heave_pid.Kp;
 	heave_pid.m = M - N_WDOT;
 	heave_pid.wn = 1.56*Wb_HEAVE;
+	cur_mot.center = MID_PULSE_LENGTH;
+	cur_mot.left = MID_PULSE_LENGTH;
+	cur_mot.right = MID_PULSE_LENGTH;
 }
 
 void loop(void){
@@ -87,52 +90,73 @@ void loop(void){
 
 	yaw_pid_ctrl.Compute();
 	heave_pid_ctrl.Compute();
-	
+
 	cur_mot.yaw_thrust = ((yaw_pid.m + yaw_pid.Km) * (accel_d.yaw + (vel_d.yaw/yaw_pid.T))) - yaw_pid_output - (yaw_pid.Km * accel.yaw);
 	cur_mot.heave_thrust = ((heave_pid.m + heave_pid.Km) * (accel_d.z + (vel_d.z/heave_pid.T))) - heave_pid_output - (heave_pid.Km * accel.z) - GRAVITY_OFFSET;
-	
-	if (user.mode) {
-		switch(user.direction) {
-			case 0: // left
-				state = IDLE;
-				break;
-			case 1:
-				state = SURGING;
-			case 2:
-				state = SURGING;
-				break;
-			case 3:
-			case 4:
-				state = HEAVING;
-				break;
-			case 5:
-			case 6:
-				state = YAWING;
-				break;
-		}
 
-		switch (state){
-			case IDLE:			
+	if (user.mode) {
+		switch(user.direction) {	
+			case STOP: // left
+				state = IDLE;
 				motA.writeMicroseconds(MID_PULSE_LENGTH);
 				motB.writeMicroseconds(MID_PULSE_LENGTH);
-				motC.writeMicroseconds(MID_PULSE_LENGTH);		
+				motC.writeMicroseconds(MID_PULSE_LENGTH);
 				break;
-			case SURGING:
+			case FWD_SURGE:
+				state = SURGING;
 				motC.writeMicroseconds(MID_PULSE_LENGTH);		
 				surge(user.power);
 				break;
-			case YAWING:
-				motC.writeMicroseconds(MID_PULSE_LENGTH);		
-				yaw(user.power);
+			case RWD_SURGE:
+				state = SURGING;
+				motC.writeMicroseconds(MID_PULSE_LENGTH);
+				surge(-user.power);
 				break;
-			case HEAVING:
+			case UP_HEAVE:
 				motA.writeMicroseconds(MID_PULSE_LENGTH);
 				motB.writeMicroseconds(MID_PULSE_LENGTH);
 				heave(user.power);
 				break;
+			case DWN_HEAVE:
+				state = HEAVING;
+				motA.writeMicroseconds(MID_PULSE_LENGTH);
+				motB.writeMicroseconds(MID_PULSE_LENGTH);
+				heave( -user.power);
+				break;
+			case YAW_LEFT:
+				state = YAWING;
+				motC.writeMicroseconds(MID_PULSE_LENGTH);		
+				yaw( user.power);
+				break;
+			case YAW_RIGHT:
+				state = YAWING;
+				motC.writeMicroseconds(MID_PULSE_LENGTH);		
+				yaw(-user.power);
+				break;
+			case SHUT_DWN:
+				state = IDLE;
+				motA.writeMicroseconds(MID_PULSE_LENGTH);
+				motB.writeMicroseconds(MID_PULSE_LENGTH);
+				motC.writeMicroseconds(MID_PULSE_LENGTH);
+				break;
+			default:
+				state = IDLE;
+				motA.writeMicroseconds(MID_PULSE_LENGTH);
+				motB.writeMicroseconds(MID_PULSE_LENGTH);
+				motC.writeMicroseconds(MID_PULSE_LENGTH);
+				break;
 		}
+		
 	}
-	
+/*
+	Serial.print("left: ");
+	Serial.print(cur_mot.left);
+	Serial.print(" right: ");
+	Serial.print(cur_mot.right);
+	Serial.print(" center: ");
+	Serial.println(cur_mot.center);
+*/
+	delay(200);
 }
 
 
@@ -148,10 +172,12 @@ void sendData(){ // i2c request callback
 
 void receiveData(int byteCount){ // i2c recieve callback
 	int i = 0;
+	signed char chksum;
 	cmd = Wire.read();
 	float2bytes_t b2f;
-	Serial.println(cmd);
-	Serial.println(byteCount);
+	//Serial.println(cmd);
+	//Serial.println(byteCount);
+	
 	switch(cmd){
 		case ALL_IMU:
 			Wire.read();
@@ -163,15 +189,18 @@ void receiveData(int byteCount){ // i2c recieve callback
 			break;
 
 		case USER_CMD:
-			//Wire.read();
-			//user.direction = ((uint16_t)Wire.read() << 8) | Wire.read();
-			//user.power = ((uint16_t)Wire.read() << 8) | Wire.read();
-			user.power = (Wire.read());
-			user.direction = Wire.read();
-			Serial.print("direction: ");
+			Wire.read();
+			user.direction =  Wire.read()|(Wire.read() << 8)  ;
+			user.power = Wire.read() |(Wire.read() << 8) ;
+			//user.power = Wire.read();
+			//user.direction = Wire.read();
+			chksum = Wire.read();
+			/*Serial.print("pow: ");
+			Serial.print(user.power);
+			Serial.print(" dir: ");
 			Serial.print(user.direction);
-			Serial.print(" power: ");
-			Serial.println(user.power);
+			Serial.print(" i: ");
+			Serial.println(chksum);*/
 			break;
 
 		case REF_TRAG:
@@ -240,23 +269,14 @@ void process_imu_data(int type, int sz){
  * Negative input causes ROV to surge backward
  */
 void surge(int thrust) {
-	if (thrust > 0) { // forward
-		lr_motor_drive(-1 * thrust / K_b, thrust / K_a);
-	} else { //backward
-		lr_motor_drive(thrust / K_b, -1 * thrust / K_a);
-	}
+	lr_motor_drive(MID_PULSE_LENGTH - (thrust / K_b), MID_PULSE_LENGTH+(thrust / K_a));
 }
-
 /*
  * Positive input causes ROV to YAW left of its heading 
  * Negative input causes ROV to YAW right of its heading
  */
 void yaw(int thrust) {
-	if (thrust > 0) { // yaw left
-		lr_motor_drive(thrust / (K_b * DIST_L), thrust / (K_a * DIST_R));
-	} else { // yaw right
-		lr_motor_drive(-1 * thrust / (K_b * DIST_L), -1 * thrust/(K_a * DIST_R));
-	}
+	lr_motor_drive(MID_PULSE_LENGTH+(thrust / (K_b * DIST_L)), MID_PULSE_LENGTH + (thrust / (K_a * DIST_R) ));
 }
 
 void lr_motor_drive(int left, int right) {
@@ -264,21 +284,21 @@ void lr_motor_drive(int left, int right) {
 	int dl = thrust_step;
 	int dr = thrust_step;
 
-	if ( (left * cur_mot.left) < 0 ) {
+	if ( ((left - 1500)*( cur_mot.left - 1500)) < 0 ) {
 		motB.writeMicroseconds(MID_PULSE_LENGTH);
 		cur_mot.left = MID_PULSE_LENGTH;
 	}
 
-	if ( (cur_mot.right * right) < 0){
+	if ( ((cur_mot.right - 1500)*(right-1500)) < 0){
 		motA.writeMicroseconds(MID_PULSE_LENGTH);
 		cur_mot.right = MID_PULSE_LENGTH;
 	}
 
-	if (left > cur_mot.left) {
+	if (left < cur_mot.left) {
 		dl *= -1;
 	}
 	
-	if (right > cur_mot.right) {
+	if (right < cur_mot.right) {
 		dr *= -1;
 	}
 
@@ -293,7 +313,6 @@ void lr_motor_drive(int left, int right) {
 		motA.writeMicroseconds(cur_mot.right);
 		delay(thrust_delay);
 	}
-
 }
 /*
  * Actuates center motor so ROV heaves. Input corresponds to the width
@@ -306,14 +325,14 @@ void lr_motor_drive(int left, int right) {
 void heave(int thrust) {
 
 	int dc = thrust_step;
-	int input = thrust / K_HEAVE;
+	int input = MID_PULSE_LENGTH + (thrust / K_HEAVE);
 
-	if ( (input * cur_mot.center) < 0) {
+	if ( ((input - 1500)*(cur_mot.center - 1500)) < 0) {
 		motC.writeMicroseconds(MID_PULSE_LENGTH);
 		cur_mot.center = MID_PULSE_LENGTH;
 	}
 
-	if (input > cur_mot.center) {
+	if (input < cur_mot.center) {
 		dc *= -1;
 	}
 
