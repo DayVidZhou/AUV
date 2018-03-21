@@ -1,10 +1,11 @@
 import smbus
 import subprocess
-import _thread
+#import _thread
+from threading import Thread
 import struct
 import time
 from mpu6050 import mpu6050
-import queue
+import Queue as queue # change this
 import curses
 
 """
@@ -54,7 +55,7 @@ def get_imu_data():
     data = imu6050.get_all_data()
     return {'ax' : data[0]['x'], 'ay':data[0]['y'], 'az':data[0]['z'], 'gx':data[1]['x'], 'gy':data[1]['y'], 'gz':data[1]['z']}
     
-def run():
+def io_thread():
     imu_fifo = queue.Queue() # {'ax','ay','az','gx','gy','gz'}
     depth_buf = queue.Queue()
     cmd_dir = IDLE
@@ -136,7 +137,9 @@ def input_handler(stdscr):
         
 
 if __name__ == '__main__':
-    _thread.start_new_thread(run, ())
+    io = Thread(target=io_thread)
+    io.start()
+    #_thread.start_new_thread(run, ())
     if (user_mode == True):
         curses.wrapper(input_handler)
 
