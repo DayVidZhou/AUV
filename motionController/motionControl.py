@@ -8,8 +8,16 @@ import queue
 import curses
 
 """
+
 1. IMU sample rate is 200Hz so with 1024 FIFO data must be read from IMU
     at least once every 366 ms
+
+x_avg_read: 0.12 x_avg_offset: -2280.7477500000036
+y_avg_read: 1.26 y_avg_offset: 3934.9378749999987
+z_avg_read: -0.06 z_avg_offset: -471.31787500000013
+gx_avg_read: 0.22 gx_avg_offset: 29.20762500000002
+gy_avg_read: -0.24 gy_avg_offset: 113.93974999999999
+gz_avg_read: -0.11 gz_avg_offset: 49.88006249999999
 
 """
 
