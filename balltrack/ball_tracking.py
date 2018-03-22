@@ -22,9 +22,9 @@ args = vars(ap.parse_args())
 # list of tracked points
 greenLower = (29, 86, 6)
 greenUpper = (64, 255, 255)
+pinkLower = (160, 109, 20)
+pinkUpper = (200, 255, 255)
 pts = deque(maxlen=args["buffer"])
-refpt = []
-clicked = False
 font = cv2.FONT_HERSHEY_SIMPLEX
 
 # if a video path was not supplied, grab the reference
@@ -35,15 +35,6 @@ if not args.get("video", False):
 # otherwise, grab a reference to the video file
 else:
 	camera = cv2.VideoCapture(args["video"])
-#Mouse click event                                                              
-def getHSV(event, x, y, flags, param):
-    global clicked
-    global refpt
-    #cv2.putText(frame, "herro", (x, y), font, 1, (255,255,255), 2, cv2.LINE_AA)
-    if event == cv2.EVENT_LBUTTONDOWN:
-        print "at %d, %d" %(x, y)
-        refpt = [(x, y)]
-        clicked = True
 # keep looping
 while True:
 	# grab the current frame
@@ -63,11 +54,9 @@ while True:
 	# construct a mask for the color "green", then perform
 	# a series of dilations and erosions to remove any small
 	# blobs left in the mask
-	mask = cv2.inRange(hsv, greenLower, greenUpper)
+	mask = cv2.inRange(hsv, pinkLower, pinkUpper)
 	mask = cv2.erode(mask, None, iterations=2)
 	mask = cv2.dilate(mask, None, iterations=2)
-
-        cv2.setMouseCallback("Frame", getHSV)
 
 	# find contours in the mask and initialize the current
 	# (x, y) center of the ball
@@ -101,9 +90,6 @@ while True:
 		# them
 		if pts[i - 1] is None or pts[i] is None:
 			continue
-        #draw circle where mouse clicked
-        if refpt:
-                cv2.circle(frame, refpt[0], 5, (255,255,255), 2)
 
 	# show the frame to our screen
 	cv2.imshow("Frame", frame)
