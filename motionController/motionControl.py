@@ -11,7 +11,7 @@ import queue # change this
 import curses
 import sys
 
-sys.path.append('/home/pi/MTE380/AUV/motionController/MPU6050_I2C_Python_Class')
+sys.path.append('/home/pi/MTE380/MPU6050_I2C_Python_Class')
 from MPU6050 import MPU6050
 from Quaternion import XYZVector as Vec
 
@@ -55,7 +55,7 @@ z_accel_offset = -534 #1305
 x_gyro_offset = 51 #-2
 y_gyro_offset =203 #-72
 z_gyro_offset = 68 #-5
-enable_debug_output = True
+enable_debug_output = False
 
 user_mode = False
 #imu6050 = mpu6050(0x68)
@@ -100,6 +100,7 @@ def io_thread():
         try:    
             arduino_packet = bus.read_i2c_block_data(ARDUINO_ADDR, REG_R_ALL, ARDUINO_PACKET_SIZE)
             arduino_packet_unpacked = struct.unpack('=hhf',bytes(arduino_packet))
+            depth_buf.put(arduino_packet[2]);
         except IOError as e:
             print(e)
             time.sleep(1)
@@ -166,6 +167,7 @@ def input_handler(stdscr):
         user_cmd_fifo.put(cmd)
         
 def imu_thread():
+    DEBUG_MODE = False
     mpu = MPU6050(i2c_bus, device_address, x_accel_offset, y_accel_offset,
               z_accel_offset, x_gyro_offset, y_gyro_offset, z_gyro_offset,
               enable_debug_output)
@@ -179,7 +181,7 @@ def imu_thread():
     print(packet_size)
     FIFO_count = mpu.get_FIFO_count()
     print(FIFO_count)
-    count = 0
+    
     while True:
        
         FIFO_count = mpu.get_FIFO_count()
@@ -199,16 +201,12 @@ def imu_thread():
             rpy = mpu.DMP_get_euler_roll_pitch_yaw(quat, grav)
             a_raw = mpu.get_acceleration()
             imu_fifo.put({'ax':9.80665*(a_raw[0]/16384.0), 'ay' : 9.80665*(a_raw[1]/16384.0), 'az' : 9.80665*(a_raw[2]/16384.0), 'yaw': rpy.z })
-            """
-            if count % 100 == 0:
+            
+            if DEBUG_MODE == True:
                 print('ax: ' + str( 9.80665*(a_raw[0]/16384.0)))
-                print('ay: ' + str( 9.80665*(a_raw[1]/16384.0)))
                 print('az: ' + str( 9.80665*(a_raw[2]/16384.0)))
-                print('roll: ' + str(rpy.x ))
-                print('pitch: ' + str( rpy.y))
                 print('yaw: ' + str( rpy.z) + '\n\n')
-            count += 1
-            """
+        
   
 if __name__ == '__main__':
     _thread.start_new_thread(imu_thread,())
