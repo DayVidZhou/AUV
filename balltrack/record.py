@@ -10,11 +10,11 @@ args = vars(ap.parse_args())
 vidname = args["name"] + ".h264"
 
 camera = picamera.PiCamera()
-camera.framerate = 25
+camera.framerate = 5
 
 camera.start_recording(vidname)
 
-time.sleep(args["length"])
+time.sleep(float(args["length"]))
 
 camera.stop_recording()
 
