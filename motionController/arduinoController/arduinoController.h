@@ -28,6 +28,10 @@
 #define K_YAW 1.13 // yaw gain for an input of 55 microseconds
 #define K_HEAVE 1
 
+#define YAW_CTRL_MAX 80
+#define SURGE_CTRL_MAX 100
+#define HEAVE_CTRL_MAX 120
+
 #define YAW_RATE_D_MAX 1.0
 #define YAW_ACCEL_D_MAX 0.5
 #define HEAVE_RATE_D_MAX 0.2

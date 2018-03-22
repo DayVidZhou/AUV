@@ -33,7 +33,7 @@ i2c_packet_t i2c_send;
 byte imu_data_b[24]; // 6axis * (4bytes/float)
 float imu_data_f[6]; // TODO: get rid of this
 byte i2c_buffer[127];
-float mpx4250_depth = 0;
+volatile float mpx4250_depth = 0;
 double yaw_pid_output;
 double heave_pid_output;
 int user_power;
@@ -93,11 +93,11 @@ void loop(void){
 	mpx4250_depth = get_depth(); // Read Pressure Sensor
 	pos.z = mpx4250_depth;
 
-	yaw_pid_ctrl.Compute();
-	heave_pid_ctrl.Compute();
+	//yaw_pid_ctrl.Compute();
+	//heave_pid_ctrl.Compute();
 
-	cur_mot.yaw_thrust = ((yaw_pid.m + yaw_pid.Km) * (accel_d.yaw + (vel_d.yaw/yaw_pid.T))) - yaw_pid_output - (yaw_pid.Km * accel.yaw);
-	cur_mot.heave_thrust = ((heave_pid.m + heave_pid.Km) * (accel_d.z + (vel_d.z/heave_pid.T))) - heave_pid_output - (heave_pid.Km * accel.z) - GRAVITY_OFFSET;
+	//cur_mot.yaw_thrust = ((yaw_pid.m + yaw_pid.Km) * (accel_d.yaw + (vel_d.yaw/yaw_pid.T))) - yaw_pid_output - (yaw_pid.Km * accel.yaw);
+	//cur_mot.heave_thrust = ((heave_pid.m + heave_pid.Km) * (accel_d.z + (vel_d.z/heave_pid.T))) - heave_pid_output - (heave_pid.Km * accel.z) - GRAVITY_OFFSET;
 
 	if (user.mode) {
 		switch(user.direction) {	
@@ -112,41 +112,41 @@ void loop(void){
 				break;
 			case FWD_SURGE:
 				state = SURGING;
-				cur_mot.center = MID_PULSE_LENGTH;
-				motC.writeMicroseconds(MID_PULSE_LENGTH);		
+				//cur_mot.center = MID_PULSE_LENGTH;
+				//motC.writeMicroseconds(MID_PULSE_LENGTH);		
 				surge(user.power);
 				break;
 			case RWD_SURGE:
 				state = SURGING;
-				cur_mot.center = MID_PULSE_LENGTH;
-				motC.writeMicroseconds(MID_PULSE_LENGTH);
+				//cur_mot.center = MID_PULSE_LENGTH;
+				//motC.writeMicroseconds(MID_PULSE_LENGTH);
 				surge(-user.power);
 				break;
 			case UP_HEAVE:
-				cur_mot.left = MID_PULSE_LENGTH;
-				cur_mot.right = MID_PULSE_LENGTH;
-				motA.writeMicroseconds(MID_PULSE_LENGTH);
-				motB.writeMicroseconds(MID_PULSE_LENGTH);
+				//cur_mot.left = MID_PULSE_LENGTH;
+				//cur_mot.right = MID_PULSE_LENGTH;
+				//motA.writeMicroseconds(MID_PULSE_LENGTH);
+				//motB.writeMicroseconds(MID_PULSE_LENGTH);
 				heave(user.power);
 				break;
 			case DWN_HEAVE:
+				//cur_mot.left = MID_PULSE_LENGTH;
+				//cur_mot.right = MID_PULSE_LENGTH;
+				//motA.writeMicroseconds(MID_PULSE_LENGTH);
+				//motB.writeMicroseconds(MID_PULSE_LENGTH);
 				state = HEAVING;
-				cur_mot.left = MID_PULSE_LENGTH;
-				cur_mot.right = MID_PULSE_LENGTH;
-				motA.writeMicroseconds(MID_PULSE_LENGTH);
-				motB.writeMicroseconds(MID_PULSE_LENGTH);
 				heave( -user.power);
 				break;
 			case YAW_LEFT:
 				state = YAWING;
-				cur_mot.center = MID_PULSE_LENGTH;
-				motC.writeMicroseconds(MID_PULSE_LENGTH);		
+				///cur_mot.center = MID_PULSE_LENGTH;
+				//motC.writeMicroseconds(MID_PULSE_LENGTH);		
 				yaw( user.power);
 				break;
 			case YAW_RIGHT:
 				state = YAWING;
-				cur_mot.center = MID_PULSE_LENGTH;
-				motC.writeMicroseconds(MID_PULSE_LENGTH);		
+				//cur_mot.center = MID_PULSE_LENGTH;
+				//motC.writeMicroseconds(MID_PULSE_LENGTH);		
 				yaw(-user.power);
 				break;
 			case SHUT_DWN:
@@ -192,10 +192,11 @@ void sendData(){ // i2c request callback
 
 void receiveData(int byteCount){ // i2c recieve callback
 	int i = 0;
-	signed char chksum = 1;
+	signed char chksum = -3;
 	cmd = Wire.read();
 	double2bytes_t b2d;
-	//Serial.println(cmd);
+	//Serial.print("numB ");
+	//Serial.println(byteCount);
 
 	while (Wire.available()){
 		i2c_buffer[i] = Wire.read();
@@ -203,44 +204,45 @@ void receiveData(int byteCount){ // i2c recieve callback
 		i++;
 	}
 
-	/*if (chksum !=  (signed char)i2c_buffer[i]) {
+#if 0
+	if (i) i--;
+	if (chksum + (signed char)i2c_buffer[i] != 0) {
 		Serial.print((signed char)i2c_buffer[i]);
-		Serial.print(" Bad Data ");
-		Serial.println(chksum);
-	}*/
+		Serial.println(" Bad Data ");
+	}
+#endif
 
-	switch(cmd){
+	switch(cmd) {
 
 		case ALL_IMU: // sketchy cmd
+			
 			read_bytes(b2d.b, i2c_buffer, 1); accel.x = b2d.d;	
 			read_bytes(b2d.b, i2c_buffer, 5); accel.y = b2d.d;
 			read_bytes(b2d.b, i2c_buffer, 9); accel.z = b2d.d;
-			read_bytes(b2d.b, i2c_buffer, 13); vel.roll = b2d.d;
-			read_bytes(b2d.b, i2c_buffer, 17); vel.pitch = b2d.d;
-			read_bytes(b2d.b, i2c_buffer, 21); vel.yaw = b2d.d;
+			read_bytes(b2d.b, i2c_buffer, 13); pos.yaw = b2d.d;
 			break;
 
 		case USER_CMD:
 			user.direction =  i2c_buffer[1] |(i2c_buffer[2] << 8);
 			user.power = i2c_buffer[3] |(i2c_buffer[4] << 8) ;
 			break;
-/*
+
 		case REF_TRAG:
-			pos_d.x = (double)BYTES_TO_DOUBLE(i2c_buffer,1);
-			pos_d.z = (double)BYTES_TO_DOUBLE(i2c_buffer,5);
-			pos_d.yaw = B(double)YTES_TO_DOUBLE(i2c_buffer, 9);
-			vel_d.x = (double)BYTES_TO_DOUBLE(i2c_buffer,13);
-			vel_d.z = (double)BYTES_TO_DOUBLE(i2c_buffer, 17);
-			vel_d.yaw = (double)BYTES_TO_DOUBLE(i2c_buffer, 21);
+			read_bytes(b2d.b, i2c_buffer, 1); pos_d.x = b2d.d;	
+			read_bytes(b2d.b, i2c_buffer, 5); pos_d.y = b2d.d;
+			read_bytes(b2d.b, i2c_buffer, 9); pos_d.z = b2d.d;
+			read_bytes(b2d.b, i2c_buffer, 13); vel_d.roll = b2d.d;
+			read_bytes(b2d.b, i2c_buffer, 17); vel_d.pitch = b2d.d;
+			read_bytes(b2d.b, i2c_buffer, 21); vel_d.yaw = b2d.d;
 			break;
 		
 		case YAW_DYN:
-			pos.yaw = (double)BYTES_TO_DOUBLE(i2c_buffer, 1);
-			vel.yaw = (double)BYTES_TO_DOUBLE(i2c_buffer, 5);
-			accel.yaw = (double)BYTES_TO_DOUBLE(i2c_buffer, 9);
+			read_bytes(b2d.b, i2c_buffer, 1); pos.yaw = b2d.d;	
+			read_bytes(b2d.b, i2c_buffer, 5); vel.yaw = b2d.d;
+			read_bytes(b2d.b, i2c_buffer, 9); accel.yaw = b2d.d;
 			break;
 
-		case HEAVE_DYN:
+		/*case HEAVE_DYN:
 			pos.z = (double)BYTES_TO_DOUBLE(i2c_buffer, 1);
 			vel.z = BYTES_TO_DOUBLE(i2c_buffer, 5);
 			accel.z = BYTES_TO_DOUBLE(i2c_buffer, 9);
@@ -267,7 +269,6 @@ float get_depth(){
 	float P = (v/SENSITIVITY) + MIN_PRESSURE;
 	return ( 1000*(P-ATM_PRESSURE) / (WATER_DENSITY*GRAVITY) );	
 }
-
 
 void process_imu_data(int type, int sz){
 	int i = 0;
@@ -351,6 +352,7 @@ void lr_motor_drive(int left, int right) {
 		delay(thrust_delay);
 	}
 }
+
 /*
  * Actuates center motor so ROV heaves. Input corresponds to the width
  * of the square pulse signal given to ESC.
@@ -379,6 +381,7 @@ void heave(int thrust) {
 		delay(thrust_delay);
 	}
 }
+
 // type == 0 -> r_d
 // type == 1 -> rdot_d
 // type == 2 -> w_d
