@@ -112,6 +112,7 @@ enum ManualDir {
 	YAW_RIGHT,
 	SHUT_DWN = 0xff
 };
+
 typedef union float2bytes_t { 
   float f;
   byte b[sizeof(float)]; 

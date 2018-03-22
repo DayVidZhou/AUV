@@ -120,14 +120,14 @@ void loop(void){
 	heave_pid_ctrl.Compute();
 
 	if (change_yaw_pid) {
-		change_yaw_pid = 0;
 		yaw_pid_ctrl.SetSampleTime(yaw_ctrl.sample_time);
 		yaw_pid_ctrl.SetTunings(yaw_ctrl.Kp, yaw_ctrl.Ki, yaw_ctrl.Kd);
+		change_yaw_pid = 0;
 	}
 	if (change_heave_pid) {
-		change_heave_pid = 0;
 		heave_pid_ctrl.SetSampleTime(heave_ctrl.sample_time);
 		heave_pid_ctrl.SetTunings(heave_ctrl.Kp, heave_ctrl.Ki, heave_ctrl.Kd);
+		change_heave_pid = 0;
 	}
 	if (user.mode == USER_CONTROL) {
 		handle_manual_input();
