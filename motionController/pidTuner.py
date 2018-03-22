@@ -94,6 +94,7 @@ def io_thread():
                 short2bytes = struct.pack('=hhb', cmd_dir,cmd_pwr, chksum)
                 bus.write_block_data(ARDUINO_ADDR, REG_USER_CMD, list(short2bytes))
                 time.sleep(0.2)
+
             except IOError as e:
                 print (e)
                 time.sleep(1)
@@ -101,9 +102,13 @@ def io_thread():
 
         try:    
             arduino_packet = bus.read_i2c_block_data(ARDUINO_ADDR, REG_R_ALL, ARDUINO_PACKET_SIZE)
-            arduino_packet_unpacked = struct.unpack('=hhf',bytes(arduino_packet))
-            depth_buf.put(arduino_packet[2]);
-        except IOError as e:
+            arduino_packet_unpacked = struct.unpack('=fff',bytes(arduino_packet))
+            print('yaw_pid_out ' + str(arduino_packet_unpacked[0]))
+            print('heave_pid_out ' + str(arduino_packet_unpacked[1]))
+            depth_buf.put(arduino_packet_unpacked[2]);
+
+    except IOError as e:
+
             print(e)
             time.sleep(1)
             subprocess.call(['i2cdetect', '-y', '1'])

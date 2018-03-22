@@ -100,6 +100,8 @@ void setup(){
 	cur_mot.left = MID_PULSE_LENGTH;
 	cur_mot.right = MID_PULSE_LENGTH;
 
+	yaw_pid_ctrl.SetOutputLimits(-1*YAW_CTRL_MAX, YAW_CTRL_MAX);
+	heave_pid_ctrl.SetOutputLimits(-1*HEAVE_CTRL_MAX, HEAVE_CTRL_MAX);
 }
 
 void loop(void){
