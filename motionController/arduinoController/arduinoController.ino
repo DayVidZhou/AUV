@@ -192,7 +192,7 @@ void sendData(){ // i2c request callback
 
 void receiveData(int byteCount){ // i2c recieve callback
 	int i = 0;
-	signed char chksum = -3;
+	//signed char chksum = 0;
 	cmd = Wire.read();
 	double2bytes_t b2d;
 	//Serial.print("numB ");
@@ -200,7 +200,6 @@ void receiveData(int byteCount){ // i2c recieve callback
 
 	while (Wire.available()){
 		i2c_buffer[i] = Wire.read();
-		chksum++;
 		i++;
 	}
 
@@ -215,7 +214,9 @@ void receiveData(int byteCount){ // i2c recieve callback
 	switch(cmd) {
 
 		case ALL_IMU: // sketchy cmd
-			
+			if ((signed char)i2c_buffer[i] != - 16) {
+				Serial.println("Bad data");
+			}
 			read_bytes(b2d.b, i2c_buffer, 1); accel.x = b2d.d;	
 			read_bytes(b2d.b, i2c_buffer, 5); accel.y = b2d.d;
 			read_bytes(b2d.b, i2c_buffer, 9); accel.z = b2d.d;
