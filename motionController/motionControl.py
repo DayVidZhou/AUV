@@ -105,6 +105,7 @@ def io_thread():
             time.sleep(1)
             subprocess.call(['i2cdetect', '-y', '1'])
         
+        print('Depth ' + str(arduino_packet_unpacked[2]))
         time.sleep(0.5)
         
         try:
@@ -118,6 +119,8 @@ def io_thread():
         except IOError as e:
             time.sleep(1)
             subprocess.call(['i2cdetect', '-y', '1'])
+        
+        time.sleep(0.5)
 
 def input_handler(stdscr):
     cmd = IDLE
