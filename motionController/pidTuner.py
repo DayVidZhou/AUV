@@ -27,7 +27,7 @@ ARDUINO_ADDR = 0x04
 
 # read only registers
 REG_R_ALL = 0x03 # reads everything at once
-ARDUINO_PACKET_SIZE = 8 # Read size
+ARDUINO_PACKET_SIZE = 12  # Read size
 
 # write only registers
 REG_IMU_ALL = 0x00 # Send all IMU data
@@ -78,7 +78,7 @@ def io_thread():
     count = 0
     motion = None
     param_change = False
-    f = open('tuning.txt')
+    f = open('tuning.txt', 'w')
     if (user_mode == True):
         try:
             bus.write_word_data(ARDUINO_ADDR, REG_USER_CMD, (cmd_dir<<8)|cmd_pwr)
@@ -95,9 +95,9 @@ def io_thread():
                 cmd_dir = IDLE
             try:
                 chksum = -6 # cmd + size + data
-                short2bytes = struct.pack('=hhb', cmd_dir,cmd_pwr, chksum)
+                short2bytes = struct.pack('=hh', cmd_dir,cmd_pwr)
                 bus.write_block_data(ARDUINO_ADDR, REG_USER_CMD, list(short2bytes))
-                time.sleep(0.2)
+                time.sleep(0.1)
 
             except IOError as e:
                 print (e)
@@ -106,7 +106,7 @@ def io_thread():
         try:    
             arduino_packet = bus.read_i2c_block_data(ARDUINO_ADDR, REG_R_ALL, ARDUINO_PACKET_SIZE)
             arduino_data = struct.unpack('=fff',bytes(arduino_packet))
-            f.write('%f %f %f\n' % arduino_data[0],arduino_data[1],arduino_data[2])
+            f.write('%s %s %s\n' % (str(arduino_data[0]),str(arduino_data[1]),str(arduino_data[2])))
             #print('depth ' + str(arduino_data[2]))
             #print('yaw_pid_out ' + str(arduino_data[0]))
             #print('heave_pid_out ' + str(arduino_data[1]))
@@ -123,11 +123,13 @@ def io_thread():
                     Kp = int(input('Yaw Kp: '))
                     Kd = int(input('Yaw Kd: '))
                     Ki = int(input('Yaw Ki: '))
+                    st = int(input('Yaw st: '))
                 else:
                     Kp = 0
                     Kd = 0
                     Ki = 0
-                float2bytes = struct.pack('=4fb', Kp, Kd, Ki, st,-16)
+                    st = 0
+                float2bytes = struct.pack('=4f', Kp, Kd, Ki, st)
                 bus.write_block_data(ARDUINO_ADDR, CHANGE_YAW_PID, list(float2bytes))
 
             except IOError as e:
@@ -137,10 +139,12 @@ def io_thread():
 
             try:
                 if (user_mode == False):
-                    Kp = int(input('Yaw Kp: '))
-                    Kd = int(input('Yaw Kd: '))
-                    Ki = int(input('Yaw Ki: '))
+                    Kp = int(input('Heave Kp: '))
+                    Kd = int(input('Heave Kd: '))
+                    Ki = int(input('Heave Ki: '))
+                    st = int(input('Heave st: '))
                 else:
+                    st = 0
                     Kp = 0
                     Kd = 0
                     Ki = 0
@@ -162,7 +166,7 @@ def io_thread():
                 yd = 0.2
                 zd = 1.0
             float2bytes = struct.pack('=3f', xd, yd, zd)
-            bus.write_block_data(ARDUINO_ADDR, REF_TRAG, list(float2bytes))
+            bus.write_block_data(ARDUINO_ADDR, REG_REF_TRAG , list(float2bytes))
             time.sleep(0.1)
         except IOError as e:
             time.sleep(1)
