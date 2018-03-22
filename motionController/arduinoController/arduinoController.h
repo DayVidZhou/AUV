@@ -2,10 +2,11 @@
 #include <Wire.h>
 #include <stdint.h>
 #include <PID_v1.h>
+#include <util/atomic.h>
 
 // ROV Params
-#define M 2.0
-#define Iz 0
+#define M 2.0976
+#define Iz 0.02296
 #define DRAG_COEFF_2_Z 0 // z nonlinear drag
 #define DRAG_COEFF_Z 0 // z linear drag
 #define DRAG_COEFF_YAW 0 // linear yaw drag
@@ -27,6 +28,10 @@
 #define K_YAW 1.13 // yaw gain for an input of 55 microseconds
 #define K_HEAVE 1
 
+#define YAW_CTRL_MAX 80
+#define SURGE_CTRL_MAX 100
+#define HEAVE_CTRL_MAX 120
+
 #define YAW_RATE_D_MAX 1.0
 #define YAW_ACCEL_D_MAX 0.5
 #define HEAVE_RATE_D_MAX 0.2
@@ -41,9 +46,9 @@
 #define DEAD_RANGE 90
 #define MIN_FWD 1545 // needs to be checked
 #define MIN_RWD 1455 // needs to be checked
-#define RIGHT_MOTOR_PIN 9
+#define RIGHT_MOTOR_PIN 10
 #define LEFT_MOTOR_PIN 11
-#define MIDDLE_MOTOR_PIN 10
+#define MIDDLE_MOTOR_PIN 9
 
 // Pressure Sensor Params
 #define WATER_DENSITY 998.57 // [kg/m^3] @ 18 [deg]
@@ -64,22 +69,17 @@
 // I2C constants
 #define SLAVE_ADDRESS 0x04
 #define SEND_SIZE 8 // bytes
-/*
-#define READ_BYTES(bytes) \
-						do {\
-							bytes[0] = Wire.read();\
-							bytes[1] = Wire.read();\
-							bytes[2] = Wire.read();\
-							bytes[3] = Wire.read();\
-							} while(0)
-*/
+
 // I2C commands
 enum I2C_CMD {
 	ALL_IMU,
 	REF_TRAG,
 	USER_CMD,
 	SEND_ALL,
-	CHANGE_MODE
+	CHANGE_MODE,
+	YAW_DYN,
+	HEAVE_DYN,
+	SURGE_DYN
 }; 
 
 // ROV Motion State
@@ -109,6 +109,12 @@ typedef union float2bytes_t {
   float f;
   byte b[sizeof(float)]; 
 }; //float2bytes_t b2f;
+
+typedef union double2bytes_t { 
+  double d;
+  byte b[sizeof(double)]; 
+}; //float2bytes_t b2f;
+
 
 typedef struct state_info{
 	int cur_state;
