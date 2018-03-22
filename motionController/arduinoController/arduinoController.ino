@@ -15,7 +15,6 @@ pid_params_t yaw_pid = {Wb_YAW, 1.0,T_YAW,K_YAW, 0};
 pid_params_t heave_pid = {Wb_HEAVE,1.0,T_HEAVE,K_HEAVE, 0};
 State state = IDLE;
 
-//char cmd = 0;
 I2C_CMD cmd;
 
 position_t pos;
@@ -25,18 +24,18 @@ position_t accel_d;
 position_t vel_d;
 position_t pos_d;
 user_cmd_t user;
-//pid_contol_t yaw_ctrl;
-//pid_contol_t heave_ctrl;
 mot_sig_t cur_mot;
 
+
 i2c_packet_t i2c_send;
-byte imu_data_b[24]; // 6axis * (4bytes/float)
-float imu_data_f[6]; // TODO: get rid of this
 byte i2c_buffer[127];
 volatile float mpx4250_depth = 0;
 double yaw_pid_output;
 double heave_pid_output;
 int user_power;
+double prev_vel_yaw;
+double prev_accel_yaw;
+int first_sample = 0;
 
 PID yaw_pid_ctrl(&(yaw_pid_output), &(pos.yaw), &(pos_d.yaw), yaw_pid.Kp, yaw_pid.Ki, yaw_pid.Kd, DIRECT);
 PID heave_pid_ctrl(&(heave_pid_output), &(pos.z), &(pos_d.z), heave_pid.Kp, heave_pid.Ki, heave_pid.Kd, DIRECT);
@@ -48,8 +47,9 @@ void lr_motor_drive(int, int);
 void surge(int);
 void yaw(int);
 void heave(int);
-//inline void read_bytes(byte bytes[4]);
+void handle_manual_input(void);
 inline void read_bytes(byte bytes[4], byte *p, int i);
+double gyro_accel_hpf();
 
 void setup(){
 
@@ -73,103 +73,51 @@ void setup(){
 	motC.writeMicroseconds(MID_PULSE_LENGTH);
 	
 	state = IDLE;
-	user.mode = 1;
+	user.mode = USER_CONTROL;
+	
+	yaw_pid.m = Iz - N_RDOT;
+	yaw_pid.Km = 0.1 * yaw_pid.m;
+	yaw_pid.wn = 1.56*Wb_YAW;
 	yaw_pid.Kp = (yaw_pid.m + yaw_pid.Km) * yaw_pid.wn*yaw_pid.wn;
 	yaw_pid.Kd = 2*yaw_pid.wn*yaw_pid.damp_ratio*(yaw_pid.m+yaw_pid.Km) - (yaw_pid.m/yaw_pid.T);
 	yaw_pid.Ki = (yaw_pid.wn/10.0)*yaw_pid.Kp;
-	yaw_pid.m = Iz - N_RDOT;
-	yaw_pid.wn = 1.56*Wb_YAW;
+	
+	heave_pid.m = M - N_WDOT;
+	heave_pid.Km = 0.1 * heave_pid.m;
+	heave_pid.wn = 1.56*Wb_HEAVE;
 	heave_pid.Kp = (heave_pid.m + heave_pid.Km) * heave_pid.wn*heave_pid.wn;
 	heave_pid.Kd = 2*heave_pid.wn*heave_pid.damp_ratio*(heave_pid.m+heave_pid.Km) - (heave_pid.m/heave_pid.T);
 	heave_pid.Ki = (heave_pid.wn/10.0)*heave_pid.Kp;
-	heave_pid.m = M - N_WDOT;
-	heave_pid.wn = 1.56*Wb_HEAVE;
+
 	cur_mot.center = MID_PULSE_LENGTH;
 	cur_mot.left = MID_PULSE_LENGTH;
 	cur_mot.right = MID_PULSE_LENGTH;
+
 }
 
 void loop(void){
 	mpx4250_depth = get_depth(); // Read Pressure Sensor
 	pos.z = mpx4250_depth;
 
-	//yaw_pid_ctrl.Compute();
-	//heave_pid_ctrl.Compute();
+	
 
-	//cur_mot.yaw_thrust = ((yaw_pid.m + yaw_pid.Km) * (accel_d.yaw + (vel_d.yaw/yaw_pid.T))) - yaw_pid_output - (yaw_pid.Km * accel.yaw);
-	//cur_mot.heave_thrust = ((heave_pid.m + heave_pid.Km) * (accel_d.z + (vel_d.z/heave_pid.T))) - heave_pid_output - (heave_pid.Km * accel.z) - GRAVITY_OFFSET;
-
-	if (user.mode) {
-		switch(user.direction) {	
-			case STOP: // left
-				state = IDLE;
-				cur_mot.left = MID_PULSE_LENGTH;
-				cur_mot.right = MID_PULSE_LENGTH;
-				cur_mot.center = MID_PULSE_LENGTH;
-				motA.writeMicroseconds(cur_mot.right);
-				motB.writeMicroseconds(cur_mot.left);
-				motC.writeMicroseconds(cur_mot.center);
-				break;
-			case FWD_SURGE:
-				state = SURGING;
-				//cur_mot.center = MID_PULSE_LENGTH;
-				//motC.writeMicroseconds(MID_PULSE_LENGTH);		
-				surge(user.power);
-				break;
-			case RWD_SURGE:
-				state = SURGING;
-				//cur_mot.center = MID_PULSE_LENGTH;
-				//motC.writeMicroseconds(MID_PULSE_LENGTH);
-				surge(-user.power);
-				break;
-			case UP_HEAVE:
-				//cur_mot.left = MID_PULSE_LENGTH;
-				//cur_mot.right = MID_PULSE_LENGTH;
-				//motA.writeMicroseconds(MID_PULSE_LENGTH);
-				//motB.writeMicroseconds(MID_PULSE_LENGTH);
-				heave(user.power);
-				break;
-			case DWN_HEAVE:
-				//cur_mot.left = MID_PULSE_LENGTH;
-				//cur_mot.right = MID_PULSE_LENGTH;
-				//motA.writeMicroseconds(MID_PULSE_LENGTH);
-				//motB.writeMicroseconds(MID_PULSE_LENGTH);
-				state = HEAVING;
-				heave( -user.power);
-				break;
-			case YAW_LEFT:
-				state = YAWING;
-				///cur_mot.center = MID_PULSE_LENGTH;
-				//motC.writeMicroseconds(MID_PULSE_LENGTH);		
-				yaw( user.power);
-				break;
-			case YAW_RIGHT:
-				state = YAWING;
-				//cur_mot.center = MID_PULSE_LENGTH;
-				//motC.writeMicroseconds(MID_PULSE_LENGTH);		
-				yaw(-user.power);
-				break;
-			case SHUT_DWN:
-				state = IDLE;
-				cur_mot.left = MID_PULSE_LENGTH;
-				cur_mot.right = MID_PULSE_LENGTH;
-				cur_mot.center = MID_PULSE_LENGTH;
-				motA.writeMicroseconds(MID_PULSE_LENGTH);
-				motB.writeMicroseconds(MID_PULSE_LENGTH);
-				motC.writeMicroseconds(MID_PULSE_LENGTH);
-				break;
-			default:
-				state = IDLE;
-				cur_mot.left = MID_PULSE_LENGTH;
-				cur_mot.right = MID_PULSE_LENGTH;
-				cur_mot.center = MID_PULSE_LENGTH;
-				motA.writeMicroseconds(MID_PULSE_LENGTH);
-				motB.writeMicroseconds(MID_PULSE_LENGTH);
-				motC.writeMicroseconds(MID_PULSE_LENGTH);
-				break;
-		}
-		
+	if (first_sample) {
+		accel.yaw = vel.yaw;
+	
+	} else {
+		accel.yaw = gyro_accel_hpf(); 	
 	}
+
+	cur_mot.yaw_thrust = ((yaw_pid.m + yaw_pid.Km) * (accel_d.yaw + (vel_d.yaw/yaw_pid.T))) - yaw_pid_output - (yaw_pid.Km * accel.yaw);
+	cur_mot.heave_thrust = ((heave_pid.m + heave_pid.Km) * (accel_d.z + (vel_d.z/heave_pid.T))) - heave_pid_output - (heave_pid.Km * accel.z) - GRAVITY_OFFSET;
+
+	yaw_pid_ctrl.Compute();
+	heave_pid_ctrl.Compute();
+
+	if (user.mode == USER_CONTROL) {
+		handle_manual_input();
+	}
+
 /*	Serial.print("left: ");
 	Serial.print(cur_mot.left);
 	Serial.print(" right: ");
@@ -192,7 +140,6 @@ void sendData(){ // i2c request callback
 
 void receiveData(int byteCount){ // i2c recieve callback
 	int i = 0;
-	//signed char chksum = 0;
 	cmd = Wire.read();
 	double2bytes_t b2d;
 	//Serial.print("numB ");
@@ -203,19 +150,13 @@ void receiveData(int byteCount){ // i2c recieve callback
 		i++;
 	}
 
-#if 0
-	if (i) i--;
-	if (chksum + (signed char)i2c_buffer[i] != 0) {
-		Serial.print((signed char)i2c_buffer[i]);
-		Serial.println(" Bad Data ");
-	}
-#endif
 
 	switch(cmd) {
 
-		case ALL_IMU: // sketchy cmd
-			if ((signed char)i2c_buffer[i] != - 16) {
-				Serial.println("Bad data");
+		case ALL_IMU:
+			i--;
+			if ( (signed char)i2c_buffer[i] != -16) {
+				return;
 			}
 			read_bytes(b2d.b, i2c_buffer, 1); accel.x = b2d.d;	
 			read_bytes(b2d.b, i2c_buffer, 5); accel.y = b2d.d;
@@ -240,56 +181,36 @@ void receiveData(int byteCount){ // i2c recieve callback
 		case YAW_DYN:
 			read_bytes(b2d.b, i2c_buffer, 1); pos.yaw = b2d.d;	
 			read_bytes(b2d.b, i2c_buffer, 5); vel.yaw = b2d.d;
-			read_bytes(b2d.b, i2c_buffer, 9); accel.yaw = b2d.d;
 			break;
 
-		/*case HEAVE_DYN:
-			pos.z = (double)BYTES_TO_DOUBLE(i2c_buffer, 1);
-			vel.z = BYTES_TO_DOUBLE(i2c_buffer, 5);
-			accel.z = BYTES_TO_DOUBLE(i2c_buffer, 9);
+		case HEAVE_DYN:
+			read_bytes(b2d.b, i2c_buffer, 1); pos.z = b2d.d;	
+			read_bytes(b2d.b, i2c_buffer, 5); vel.z = b2d.d;
+			read_bytes(b2d.b, i2c_buffer, 9); accel.z = b2d.d;
 			break;
 
 		case SURGE_DYN:
-			pos.x = BYTES_TO_DOUBLE(i2c_buffer, 1);
-			vel.x = BYTES_TO_DOUBLE(i2c_buffer, 5);
-			accel.x = BYTES_TO_DOUBLE(i2c_buffer, 9);
+			read_bytes(b2d.b, i2c_buffer, 1); pos.x = b2d.d;	
+			read_bytes(b2d.b, i2c_buffer, 5); vel.x = b2d.d;
+			read_bytes(b2d.b, i2c_buffer, 9); accel.x = b2d.d;
 			break;
-*/
+
 		case CHANGE_MODE:
-			user.mode = i2c_buffer[1];
+			user.mode = i2c_buffer[0];
 			break;
 	}
 
 }
 
-float get_depth(){
-	float v = analogRead(PRESSURE_SENSOR_PIN) * ADC_LSB;
+double get_depth(){
+	double v = analogRead(PRESSURE_SENSOR_PIN) * ADC_LSB;
 	if (v < 0.204) return 20.0;
 	if (v > 4.896) return 250.0;
 	//float P =((v - MIN_OFFSET)/SENSITIVITY) + MIN_PRESSURE;
-	float P = (v/SENSITIVITY) + MIN_PRESSURE;
+	double P = (v/SENSITIVITY) + MIN_PRESSURE;
 	return ( 1000*(P-ATM_PRESSURE) / (WATER_DENSITY*GRAVITY) );	
 }
 
-void process_imu_data(int type, int sz){
-	int i = 0;
-	float2bytes_t b2f;
-	double * p = &(pos.x);
-	switch(type){
-		case ALL_IMU:
-			for (i = 0; i < (sz>>2); i++){
-				b2f.b[0] = imu_data_b[i*4];
-				b2f.b[1] = imu_data_b[i*4+1];
-				b2f.b[2] = imu_data_b[i*4+2];
-				b2f.b[3] = imu_data_b[i*4+3];
-				imu_data_f[i] = b2f.f;
-				*p = (double)b2f.f;
-				p++;
-			}
-			//Serial.println(imu_data_f[2],4);
-			break;
-	}
-}
 
 /**
  * *** Actuation Model ***
@@ -412,3 +333,84 @@ inline void read_bytes(byte bytes[4], byte *p, int i) {
 							bytes[2] = p[i+2];
 							bytes[3] = p[i+3];
 							}
+void handle_manual_input(void) {
+	switch(user.direction) {	
+		case STOP: // left
+			state = IDLE;
+			cur_mot.left = MID_PULSE_LENGTH;
+			cur_mot.right = MID_PULSE_LENGTH;
+			cur_mot.center = MID_PULSE_LENGTH;
+			motA.writeMicroseconds(cur_mot.right);
+			motB.writeMicroseconds(cur_mot.left);
+			motC.writeMicroseconds(cur_mot.center);
+			break;
+		case FWD_SURGE:
+			constrain(user.power, -SURGE_CTRL_MAX, SURGE_CTRL_MAX);
+			state = SURGING;
+			//cur_mot.center = MID_PULSE_LENGTH;
+			//motC.writeMicroseconds(MID_PULSE_LENGTH);		
+			surge(user.power);
+			break;
+		case RWD_SURGE:
+			state = SURGING;
+			constrain(user.power, -SURGE_CTRL_MAX, SURGE_CTRL_MAX);
+			//cur_mot.center = MID_PULSE_LENGTH;
+			//motC.writeMicroseconds(MID_PULSE_LENGTH);
+			surge(-user.power);
+			break;
+		case UP_HEAVE:
+			constrain(user.power, -HEAVE_CTRL_MAX, HEAVE_CTRL_MAX);
+			//cur_mot.left = MID_PULSE_LENGTH;
+			//cur_mot.right = MID_PULSE_LENGTH;
+			//motA.writeMicroseconds(MID_PULSE_LENGTH);
+			//motB.writeMicroseconds(MID_PULSE_LENGTH);
+			heave(user.power);
+			break;
+		case DWN_HEAVE:
+			constrain(user.power, -HEAVE_CTRL_MAX, HEAVE_CTRL_MAX);
+			//cur_mot.left = MID_PULSE_LENGTH;
+			//cur_mot.right = MID_PULSE_LENGTH;
+			//motA.writeMicroseconds(MID_PULSE_LENGTH);
+			//motB.writeMicroseconds(MID_PULSE_LENGTH);
+			state = HEAVING;
+			heave( -user.power);
+			break;
+		case YAW_LEFT:
+			state = YAWING;
+			constrain(user.power, -YAW_CTRL_MAX, YAW_CTRL_MAX);
+			///cur_mot.center = MID_PULSE_LENGTH;
+			//motC.writeMicroseconds(MID_PULSE_LENGTH);		
+			yaw( user.power);
+			break;
+		case YAW_RIGHT:
+			state = YAWING;
+			constrain(user.power, -YAW_CTRL_MAX, YAW_CTRL_MAX);
+			//cur_mot.center = MID_PULSE_LENGTH;
+			//motC.writeMicroseconds(MID_PULSE_LENGTH);		
+			yaw(-user.power);
+			break;
+		case SHUT_DWN:
+			state = IDLE;
+			cur_mot.left = MID_PULSE_LENGTH;
+			cur_mot.right = MID_PULSE_LENGTH;
+			cur_mot.center = MID_PULSE_LENGTH;
+			motA.writeMicroseconds(MID_PULSE_LENGTH);
+			motB.writeMicroseconds(MID_PULSE_LENGTH);
+			motC.writeMicroseconds(MID_PULSE_LENGTH);
+			break;
+		default:
+			state = IDLE;
+			cur_mot.left = MID_PULSE_LENGTH;
+			cur_mot.right = MID_PULSE_LENGTH;
+			cur_mot.center = MID_PULSE_LENGTH;
+			motA.writeMicroseconds(MID_PULSE_LENGTH);
+			motB.writeMicroseconds(MID_PULSE_LENGTH);
+			motC.writeMicroseconds(MID_PULSE_LENGTH);
+			break;
+	}
+}
+
+double gyro_accel_hpf(){
+    double alpha = (1.0/(YAW_W_HPF_CUTOFF*2*3.14)) / ((1.0/(YAW_W_HPF_CUTOFF*2*3.14)) + ( 1.0/IMU_SAMPLE_RATE ));
+	return alpha *(prev_accel_yaw + vel.yaw - prev_vel_yaw);	
+}

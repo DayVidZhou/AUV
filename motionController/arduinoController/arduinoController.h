@@ -7,6 +7,7 @@
 // ROV Params
 #define M 2.0976
 #define Iz 0.02296
+#define VOLUME 0.002427
 #define DRAG_COEFF_2_Z 0 // z nonlinear drag
 #define DRAG_COEFF_Z 0 // z linear drag
 #define DRAG_COEFF_YAW 0 // linear yaw drag
@@ -27,6 +28,9 @@
 #define T_SURGE 0 // surge input gain
 #define K_YAW 1.13 // yaw gain for an input of 55 microseconds
 #define K_HEAVE 1
+#define PID_RATE 5 // Hz
+#define YAW_W_HPF_CUTOFF 5 // Hz
+#define IMU_SAMPLE_RATE 42 // Hz
 
 #define YAW_CTRL_MAX 80
 #define SURGE_CTRL_MAX 100
@@ -91,10 +95,11 @@ enum State {
 };
 
 // ROV MODE
-/*enum Mode {
+enum Mode {
 	AUTONOMOUS,
-	MANUAL
-};*/
+	USER_CONTROL
+};
+
 enum ManualDir {
 	STOP,
 	FWD_SURGE,
