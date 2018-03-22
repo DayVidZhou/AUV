@@ -15,7 +15,7 @@ pid_params_t yaw_pid = {Wb_YAW, 1.0,T_YAW,K_YAW, 0};
 pid_params_t heave_pid = {Wb_HEAVE,1.0,T_HEAVE,K_HEAVE, 0};
 State state = IDLE;
 
-I2C_CMD cmd;
+volatile I2C_CMD cmd;
 
 position_t pos;
 position_t accel;
@@ -36,6 +36,13 @@ int user_power;
 double prev_vel_yaw;
 double prev_accel_yaw;
 int first_sample = 0;
+volatile double ctrl_yaw_out; 
+volatile double ctrl_heave_out; 
+volatile int change_yaw_pid;
+volatile int change_heave_pid;
+pid_contol_t heave_ctrl;
+pid_contol_t yaw_ctrl;
+
 
 PID yaw_pid_ctrl(&(yaw_pid_output), &(pos.yaw), &(pos_d.yaw), yaw_pid.Kp, yaw_pid.Ki, yaw_pid.Kd, DIRECT);
 PID heave_pid_ctrl(&(heave_pid_output), &(pos.z), &(pos_d.z), heave_pid.Kp, heave_pid.Ki, heave_pid.Kd, DIRECT);
@@ -99,8 +106,6 @@ void loop(void){
 	mpx4250_depth = get_depth(); // Read Pressure Sensor
 	pos.z = mpx4250_depth;
 
-	
-
 	if (first_sample) {
 		accel.yaw = vel.yaw;
 	
@@ -108,12 +113,22 @@ void loop(void){
 		accel.yaw = gyro_accel_hpf(); 	
 	}
 
-	cur_mot.yaw_thrust = ((yaw_pid.m + yaw_pid.Km) * (accel_d.yaw + (vel_d.yaw/yaw_pid.T))) - yaw_pid_output - (yaw_pid.Km * accel.yaw);
-	cur_mot.heave_thrust = ((heave_pid.m + heave_pid.Km) * (accel_d.z + (vel_d.z/heave_pid.T))) - heave_pid_output - (heave_pid.Km * accel.z) - GRAVITY_OFFSET;
+	ctrl_yaw_out = ((yaw_pid.m + yaw_pid.Km) * (accel_d.yaw + (vel_d.yaw/yaw_pid.T))) - yaw_pid_output - (yaw_pid.Km * accel.yaw);
+	ctrl_heave_out = ((heave_pid.m + heave_pid.Km) * (accel_d.z + (vel_d.z/heave_pid.T))) - heave_pid_output - (heave_pid.Km * accel.z) - GRAVITY_OFFSET;
 
 	yaw_pid_ctrl.Compute();
 	heave_pid_ctrl.Compute();
 
+	if (change_yaw_pid) {
+		change_yaw_pid = 0;
+		yaw_pid_ctrl.SetSampleTime(yaw_ctrl.sample_time);
+		yaw_pid_ctrl.SetTunings(yaw_ctrl.Kp, yaw_ctrl.Ki, yaw_ctrl.Kd);
+	}
+	if (change_heave_pid) {
+		change_heave_pid = 0;
+		heave_pid_ctrl.SetSampleTime(heave_ctrl.sample_time);
+		heave_pid_ctrl.SetTunings(heave_ctrl.Kp, heave_ctrl.Ki, heave_ctrl.Kd);
+	}
 	if (user.mode == USER_CONTROL) {
 		handle_manual_input();
 	}
@@ -131,8 +146,8 @@ void loop(void){
 void sendData(){ // i2c request callback
 	
 	if (cmd == SEND_ALL){
-		i2c_send.data.cur_state = (byte)state;
-		i2c_send.data.prev_state = 0; // tmp
+		i2c_send.data.heave_pid_out = ctrl_heave_out; // tmp
+		i2c_send.data.yaw_pid_out = ctrl_yaw_out;
 		i2c_send.data.depth = mpx4250_depth;
 		Wire.write(i2c_send.packet, sizeof(state_info_t));
 	}
@@ -194,7 +209,20 @@ void receiveData(int byteCount){ // i2c recieve callback
 			read_bytes(b2d.b, i2c_buffer, 5); vel.x = b2d.d;
 			read_bytes(b2d.b, i2c_buffer, 9); accel.x = b2d.d;
 			break;
-
+		case CHANGE_YAW_PID:
+			change_yaw_pid = 1;	
+			read_bytes(b2d.b, i2c_buffer, 1); yaw_ctrl.Kp = b2d.d;	
+			read_bytes(b2d.b, i2c_buffer, 5); yaw_ctrl.Kd = b2d.d;
+			read_bytes(b2d.b, i2c_buffer, 9); yaw_ctrl.Ki = b2d.d;
+			read_bytes(b2d.b, i2c_buffer, 9); yaw_ctrl.sample_time = b2d.d;
+			break;
+		case CHANGE_HEAVE_PID:
+			change_heave_pid = 1;	
+			read_bytes(b2d.b, i2c_buffer, 1); heave_ctrl.Kp = b2d.d;	
+			read_bytes(b2d.b, i2c_buffer, 5); heave_ctrl.Kd = b2d.d;
+			read_bytes(b2d.b, i2c_buffer, 9); heave_ctrl.Ki = b2d.d;
+			read_bytes(b2d.b, i2c_buffer, 9); heave_ctrl.sample_time = b2d.d;
+			break;
 		case CHANGE_MODE:
 			user.mode = i2c_buffer[0];
 			break;

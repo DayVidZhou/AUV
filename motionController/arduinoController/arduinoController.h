@@ -83,7 +83,9 @@ enum I2C_CMD {
 	CHANGE_MODE,
 	YAW_DYN,
 	HEAVE_DYN,
-	SURGE_DYN
+	SURGE_DYN,
+	CHANGE_YAW_PID,
+	CHANGE_HEAVE_PID
 }; 
 
 // ROV Motion State
@@ -122,8 +124,8 @@ typedef union double2bytes_t {
 
 
 typedef struct state_info{
-	int cur_state;
-	int prev_state; // random / should be replaced with other 2 byte padding
+	double yaw_pid_out;
+	double heave_pid_out;
 	float depth;
 } state_info_t;
 
@@ -164,14 +166,11 @@ typedef struct pid_params {
 } pid_params_t;
 
 typedef struct pid_control {
-	double i_gain;
-	double d_gain;
-	double p_gain;
-	double prev;
-	unsigned long pid_time;
-	unsigned long time;
-	double t_now;
-	double t_prev;
+	double Kp;
+	double Kd;
+	double Ki;
+	double sample_time;
+	double limit;
 } pid_contol_t;
 
 typedef struct mot_sig {
