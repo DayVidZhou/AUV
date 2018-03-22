@@ -77,6 +77,8 @@ def io_thread():
     cmd_pwr = 100
     count = 0
     motion = None
+    param_change = False
+    f = open('tuning.txt')
     if (user_mode == True):
         try:
             bus.write_word_data(ARDUINO_ADDR, REG_USER_CMD, (cmd_dir<<8)|cmd_pwr)
@@ -104,13 +106,10 @@ def io_thread():
         try:    
             arduino_packet = bus.read_i2c_block_data(ARDUINO_ADDR, REG_R_ALL, ARDUINO_PACKET_SIZE)
             arduino_data = struct.unpack('=fff',bytes(arduino_packet))
-            depth_buf.put(arduino_data[2]);
-            if (user_mode == False):
-                print('depth ' + str(arduino_data[2]))
-                print('yaw_pid_out ' + str(arduino_data[0]))
-                print('heave_pid_out ' + str(arduino_data[1]))
-            else:
-                user_print_fifo.put(arduino_data)
+            f.write('%f %f %f\n' % arduino_data[0],arduino_data[1],arduino_data[2])
+            #print('depth ' + str(arduino_data[2]))
+            #print('yaw_pid_out ' + str(arduino_data[0]))
+            #print('heave_pid_out ' + str(arduino_data[1]))
         except IOError as e:
             print(e)
             time.sleep(1)
@@ -118,40 +117,40 @@ def io_thread():
         time.sleep(0.1)
         
         
+        if (param_change == True):
+            try:
+                if (user_mode == False):
+                    Kp = int(input('Yaw Kp: '))
+                    Kd = int(input('Yaw Kd: '))
+                    Ki = int(input('Yaw Ki: '))
+                else:
+                    Kp = 0
+                    Kd = 0
+                    Ki = 0
+                float2bytes = struct.pack('=4fb', Kp, Kd, Ki, st,-16)
+                bus.write_block_data(ARDUINO_ADDR, CHANGE_YAW_PID, list(float2bytes))
 
-        try:
-            if (user_mode == False):
-                Kp = int(input('Yaw Kp: '))
-                Kd = int(input('Yaw Kd: '))
-                Ki = int(input('Yaw Ki: '))
-            else:
-                Kp = 0
-                Kd = 0
-                Ki = 0
-            float2bytes = struct.pack('=4fb', Kp, Kd, Ki, st,-16)
-            bus.write_block_data(ARDUINO_ADDR, CHANGE_YAW_PID, list(float2bytes))
+            except IOError as e:
+                time.sleep(1)
+                subprocess.call(['i2cdetect', '-y', '1'])
+            time.sleep(0.1)
 
-        except IOError as e:
-            time.sleep(1)
-            subprocess.call(['i2cdetect', '-y', '1'])
-        time.sleep(0.1)
+            try:
+                if (user_mode == False):
+                    Kp = int(input('Yaw Kp: '))
+                    Kd = int(input('Yaw Kd: '))
+                    Ki = int(input('Yaw Ki: '))
+                else:
+                    Kp = 0
+                    Kd = 0
+                    Ki = 0
+                float2bytes = struct.pack('=4f', Kp, Kd, Ki, st)
+                bus.write_block_data(ARDUINO_ADDR, CHANGE_HEAVE_PID, list(float2bytes))
 
-        try:
-            if (user_mode == False):
-                Kp = int(input('Yaw Kp: '))
-                Kd = int(input('Yaw Kd: '))
-                Ki = int(input('Yaw Ki: '))
-            else:
-                Kp = 0
-                Kd = 0
-                Ki = 0
-            float2bytes = struct.pack('=4fb', Kp, Kd, Ki, st,-16)
-            bus.write_block_data(ARDUINO_ADDR, CHANGE_HEAVE_PID, list(float2bytes))
-
-        except IOError as e:
-            time.sleep(1)
-            subprocess.call(['i2cdetect', '-y', '1'])
-        time.sleep(0.1)
+            except IOError as e:
+                time.sleep(1)
+                subprocess.call(['i2cdetect', '-y', '1'])
+            time.sleep(0.1)
         
         try:
             if (user_mode == False):
@@ -159,27 +158,27 @@ def io_thread():
                 yd = int(input('yd: '))
                 zd = int(input('zd: '))
             else:
-                xd = 0
-                yd = 0
-                zd = 0
-            float2bytes = struct.pack('=3fb', xd, yd, zd,-12)
+                xd = 1.0
+                yd = 0.2
+                zd = 1.0
+            float2bytes = struct.pack('=3f', xd, yd, zd)
             bus.write_block_data(ARDUINO_ADDR, REF_TRAG, list(float2bytes))
+            time.sleep(0.1)
         except IOError as e:
             time.sleep(1)
             subprocess.call(['i2cdetect', '-y', '1'])
-        time.sleep(0.1)
         
         try:
             motion = imu_fifo.get(timeout=0.5)
         except queue.Empty as e:
             continue
         try:
-            float2bytes = struct.pack('=4fb', motion['ax'], motion['ay'], motion['az'], motion['yaw'], -16)
+            float2bytes = struct.pack('=3f', motion['ax'], motion['az'], motion['yaw'])
             bus.write_block_data(ARDUINO_ADDR, REG_IMU_ALL, list(float2bytes))
+            time.sleep(0.1)
         except IOError as e:
             time.sleep(1)
             subprocess.call(['i2cdetect', '-y', '1'])
-        time.sleep(0.1)
 
 def input_handler(stdscr):
     cmd = IDLE
@@ -223,7 +222,6 @@ def input_handler(stdscr):
             cmd = SHUT_DWN
             break;
         user_cmd_fifo.put(cmd)
-        user_cmd_fifo.get(cmd)
         
 def imu_thread():
     DEBUG_MODE = False

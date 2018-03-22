@@ -172,13 +172,12 @@ void receiveData(int byteCount){ // i2c recieve callback
 
 		case ALL_IMU:
 			i--;
-			if ( (signed char)i2c_buffer[i] != -16) {
-				return;
-			}
+			//if ( (signed char)i2c_buffer[i] != -16) {
+			//	return;
+			//}
 			read_bytes(b2d.b, i2c_buffer, 1); accel.x = b2d.d;	
-			read_bytes(b2d.b, i2c_buffer, 5); accel.y = b2d.d;
-			read_bytes(b2d.b, i2c_buffer, 9); accel.z = b2d.d;
-			read_bytes(b2d.b, i2c_buffer, 13); pos.yaw = b2d.d;
+			read_bytes(b2d.b, i2c_buffer, 5); accel.z = b2d.d;
+			read_bytes(b2d.b, i2c_buffer, 9); pos.yaw = b2d.d;
 			break;
 
 		case USER_CMD:
