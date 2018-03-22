@@ -113,7 +113,7 @@ def io_thread():
             continue
 
         try:
-            float2bytes = struct.pack('=4f', motion['ax'], motion['ay'], motion['az'], motion['gz'])
+            float2bytes = struct.pack('=4fb', motion['ax'], motion['ay'], motion['az'], motion['yaw'], -16)
             bus.write_block_data(ARDUINO_ADDR, REG_IMU_ALL, list(float2bytes))
         except IOError as e:
             time.sleep(1)
