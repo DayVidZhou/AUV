@@ -64,6 +64,8 @@ user_mode = True
 bus = smbus.SMBus(1) # for RPI version 1, use "bus = smbus.SMBus(0)"
 user_cmd_fifo = queue.Queue()
 imu_fifo = queue.Queue() # {'ax','ay','az','gz'}
+pid_tune_fifo = queue.Queue()
+user_print_fifo = queue.Queue()
 
 def get_imu_data():
     data = imu6050.get_all_data()
@@ -99,20 +101,20 @@ def io_thread():
                 print (e)
                 time.sleep(1)
                 subprocess.call(['i2cdetect', '-y', '1'])
-
         try:    
             arduino_packet = bus.read_i2c_block_data(ARDUINO_ADDR, REG_R_ALL, ARDUINO_PACKET_SIZE)
-            arduino_packet_unpacked = struct.unpack('=fff',bytes(arduino_packet))
-            print('yaw_pid_out ' + str(arduino_packet_unpacked[0]))
-            print('heave_pid_out ' + str(arduino_packet_unpacked[1]))
-            depth_buf.put(arduino_packet_unpacked[2]);
-
-    except IOError as e:
-
+            arduino_data = struct.unpack('=fff',bytes(arduino_packet))
+            depth_buf.put(arduino_data[2]);
+            if (user_mode == False):
+                print('depth ' + str(arduino_data[2]))
+                print('yaw_pid_out ' + str(arduino_data[0]))
+                print('heave_pid_out ' + str(arduino_data[1]))
+            else:
+                user_print_fifo.put(arduino_data)
+        except IOError as e:
             print(e)
             time.sleep(1)
             subprocess.call(['i2cdetect', '-y', '1'])
-        
         time.sleep(0.5)
         
         try:
@@ -126,6 +128,41 @@ def io_thread():
         except IOError as e:
             time.sleep(1)
             subprocess.call(['i2cdetect', '-y', '1'])
+        time.sleep(0.5)
+
+        try:
+            if (user_mode == False):
+                Kp = int(input('Yaw Kp: '))
+                Kd = int(input('Yaw Kd: '))
+                Ki = int(input('Yaw Ki: '))
+            else:
+                Kp = 0
+                Kd = 0
+                Ki = 0
+            float2bytes = struct.pack('=4fb', Kp, Kd, Ki, st,-16)
+            bus.write_block_data(ARDUINO_ADDR, CHANGE_YAW_PID, list(float2bytes))
+
+        except IOError as e:
+            time.sleep(1)
+            subprocess.call(['i2cdetect', '-y', '1'])
+        time.sleep(0.5)
+
+        try:
+            if (user_mode == False):
+                Kp = int(input('Yaw Kp: '))
+                Kd = int(input('Yaw Kd: '))
+                Ki = int(input('Yaw Ki: '))
+            else:
+                Kp = 0
+                Kd = 0
+                Ki = 0
+            float2bytes = struct.pack('=4fb', Kp, Kd, Ki, st,-16)
+            bus.write_block_data(ARDUINO_ADDR, CHANGE_HEAVE_PID, list(float2bytes))
+
+        except IOError as e:
+            time.sleep(1)
+            subprocess.call(['i2cdetect', '-y', '1'])
+        time.sleep(0.5)
 
 def input_handler(stdscr):
     cmd = IDLE
@@ -139,36 +176,37 @@ def input_handler(stdscr):
         k = stdscr.getch()
         if (k == curses.KEY_UP):
             cmd = FWD_SURGE
-            stdscr.clear()
-            stdscr.addstr(20,70,"SURGE FWD")
+        #    stdscr.clear()
+         #   stdscr.addstr(20,70,"SURGE FWD")
         elif (k == curses.KEY_DOWN):
             cmd = RWD_SURGE
-            stdscr.clear()
-            stdscr.addstr(20,70,"SURGE RWD")
+          #  stdscr.clear()
+          #  stdscr.addstr(20,70,"SURGE RWD")
         elif (k == curses.KEY_LEFT):
             cmd = YAW_LEFT
-            stdscr.clear()
-            stdscr.addstr(20,70,"YAW LEFT")
+          #  stdscr.clear()
+          #  stdscr.addstr(20,70,"YAW LEFT")
         elif (k == curses.KEY_RIGHT):
             cmd = YAW_RIGHT
-            stdscr.clear()
-            stdscr.addstr(20,70,"YAW RIGHT")
+          #  stdscr.clear()
+          #  stdscr.addstr(20,70,"YAW RIGHT")
         elif (k == ord('w')):
             cmd = UP_HEAVE
-            stdscr.clear()
-            stdscr.addstr(20,70,"HEAVE UP")
+          #  stdscr.clear()
+          #  stdscr.addstr(20,70,"HEAVE UP")
         elif (k == ord('d')):
             cmd = DWN_HEAVE
-            stdscr.clear()
-            stdscr.addstr(20,70,"HEAVE DWN")
+           # stdscr.clear()
+           # stdscr.addstr(20,70,"HEAVE DWN")
         elif (k == curses.ERR):
             cmd = IDLE
-            stdscr.clear()
+           # stdscr.clear()
             stdscr.addstr(20,70,"IDLE")
         elif(k == ord('q')):
             cmd = SHUT_DWN
             break;
         user_cmd_fifo.put(cmd)
+        user_cmd_fifo.get(cmd)
         
 def imu_thread():
     DEBUG_MODE = False
