@@ -184,15 +184,16 @@ void receiveData(int byteCount){ // i2c recieve callback
 		case USER_CMD:
 			user.direction =  i2c_buffer[1] |(i2c_buffer[2] << 8);
 			user.power = i2c_buffer[3] |(i2c_buffer[4] << 8) ;
+			Serial.print("dir: ");
+			Serial.print(user.direction);
+			Serial.print(" power: ");
+			Serial.println(user.power);
 			break;
 
 		case REF_TRAG:
 			read_bytes(b2d.b, i2c_buffer, 1); pos_d.x = b2d.d;	
 			read_bytes(b2d.b, i2c_buffer, 5); pos_d.y = b2d.d;
 			read_bytes(b2d.b, i2c_buffer, 9); pos_d.z = b2d.d;
-			read_bytes(b2d.b, i2c_buffer, 13); vel_d.roll = b2d.d;
-			read_bytes(b2d.b, i2c_buffer, 17); vel_d.pitch = b2d.d;
-			read_bytes(b2d.b, i2c_buffer, 21); vel_d.yaw = b2d.d;
 			break;
 		
 		case YAW_DYN:

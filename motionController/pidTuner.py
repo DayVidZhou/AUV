@@ -87,7 +87,7 @@ def io_thread():
     while True:
         if (user_mode == True):
             try:
-                cmd_dir = user_cmd_fifo.get(timeout=0.5)
+                cmd_dir = user_cmd_fifo.get(timeout=0.1)
             except queue.Empty as e:
                 print( e)
                 cmd_dir = IDLE
@@ -115,20 +115,9 @@ def io_thread():
             print(e)
             time.sleep(1)
             subprocess.call(['i2cdetect', '-y', '1'])
-        time.sleep(0.5)
+        time.sleep(0.1)
         
-        try:
-            motion = imu_fifo.get(timeout=0.5)
-        except queue.Empty as e:
-            continue
-
-        try:
-            float2bytes = struct.pack('=4fb', motion['ax'], motion['ay'], motion['az'], motion['yaw'], -16)
-            bus.write_block_data(ARDUINO_ADDR, REG_IMU_ALL, list(float2bytes))
-        except IOError as e:
-            time.sleep(1)
-            subprocess.call(['i2cdetect', '-y', '1'])
-        time.sleep(0.5)
+        
 
         try:
             if (user_mode == False):
@@ -145,7 +134,7 @@ def io_thread():
         except IOError as e:
             time.sleep(1)
             subprocess.call(['i2cdetect', '-y', '1'])
-        time.sleep(0.5)
+        time.sleep(0.1)
 
         try:
             if (user_mode == False):
@@ -162,7 +151,35 @@ def io_thread():
         except IOError as e:
             time.sleep(1)
             subprocess.call(['i2cdetect', '-y', '1'])
-        time.sleep(0.5)
+        time.sleep(0.1)
+        
+        try:
+            if (user_mode == False):
+                xd = int(input('xd: '))
+                yd = int(input('yd: '))
+                zd = int(input('zd: '))
+            else:
+                xd = 0
+                yd = 0
+                zd = 0
+            float2bytes = struct.pack('=3fb', xd, yd, zd,-12)
+            bus.write_block_data(ARDUINO_ADDR, REF_TRAG, list(float2bytes))
+        except IOError as e:
+            time.sleep(1)
+            subprocess.call(['i2cdetect', '-y', '1'])
+        time.sleep(0.1)
+        
+        try:
+            motion = imu_fifo.get(timeout=0.5)
+        except queue.Empty as e:
+            continue
+        try:
+            float2bytes = struct.pack('=4fb', motion['ax'], motion['ay'], motion['az'], motion['yaw'], -16)
+            bus.write_block_data(ARDUINO_ADDR, REG_IMU_ALL, list(float2bytes))
+        except IOError as e:
+            time.sleep(1)
+            subprocess.call(['i2cdetect', '-y', '1'])
+        time.sleep(0.1)
 
 def input_handler(stdscr):
     cmd = IDLE
