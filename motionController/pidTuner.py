@@ -58,7 +58,7 @@ x_gyro_offset = 51 #-2
 y_gyro_offset =203 #-72
 z_gyro_offset = 68 #-5
 enable_debug_output = True
-user_mode = False
+user_mode = True
 #imu6050 = mpu6050(0x68)
 bus = smbus.SMBus(1) # for RPI version 1, use "bus = smbus.SMBus(0)"
 user_cmd_fifo = queue.Queue()
@@ -158,10 +158,10 @@ def io_thread():
                 arduino_packet = bus.read_i2c_block_data(ARDUINO_ADDR, REG_R_ALL, ARDUINO_PACKET_SIZE)
                 arduino_data = struct.unpack('=fff',bytes(arduino_packet))
                 time.sleep(0.1)
-                #f.write('%s %s %s\n' % (str(arduino_data[0]),str(arduino_data[1]),str(arduino_data[2])))
-                print('depth ' + str(arduino_data[2]))
-                print('yaw_pid_out ' + str(arduino_data[0]))
-                print('heave_pid_out ' + str(arduino_data[1]) + '\n\n')
+                f.write('%s %s %s\n' % (str(arduino_data[0]),str(arduino_data[1]),str(arduino_data[2])))
+                #print('depth ' + str(arduino_data[2]))
+                #print('yaw_pid_out ' + str(arduino_data[0]))
+                #print('heave_pid_out ' + str(arduino_data[1]) + '\n\n')
                 count = 0
             except IOError as e:
                 print(e)
