@@ -58,7 +58,6 @@ x_gyro_offset = 51 #-2
 y_gyro_offset =203 #-72
 z_gyro_offset = 68 #-5
 enable_debug_output = True
-
 user_mode = False
 #imu6050 = mpu6050(0x68)
 bus = smbus.SMBus(1) # for RPI version 1, use "bus = smbus.SMBus(0)"
@@ -78,16 +77,64 @@ def io_thread():
     count = 0
     motion = None
     param_change = False
-    xd = 0
-    yd = 0
-    zd = 0
+    xd = 0.0
+    ad = 0.0
+    zd = 0.0
+    yawd = 0.0
+    get_pid_values = True
     f = open('tuning.txt', 'w')
+
     if (user_mode == True):
         try:
             bus.write_word_data(ARDUINO_ADDR, REG_USER_CMD, (cmd_dir<<8)|cmd_pwr)
         except IOError as ioe:
             subprocess.call(['i2cdetect', '-y', '1'])
             print( ioe)
+    
+    
+    try:
+        if (user_mode == False):
+            change_value = input('Change Yaw Params (y/n)?: ')
+            if (change_value == 'y'):
+                Kp = float(input('Yaw Kp: '))
+                Kd = float(input('Yaw Kd: '))
+                Ki = float(input('Yaw Ki: '))
+                st = float(input('Yaw st: '))
+                float2bytes = struct.pack('=4f', Kp, Kd, Ki, st)
+                bus.write_block_data(ARDUINO_ADDR, CHANGE_YAW_PID, list(float2bytes))
+    except IOError as e:
+        time.sleep(1)
+        subprocess.call(['i2cdetect', '-y', '1'])
+    time.sleep(0.1)
+
+    try:
+        if (user_mode == False):
+            change_value = input('Change Heave Params (y/n)?: ')
+            if (change_value == 'y'):
+                Kp = float(input('Heave Kp: '))
+                Kd = float(input('Heave Kd: '))
+                Ki = float(input('Heave Ki: '))
+                st = float(input('Heave st: '))
+                float2bytes = struct.pack('=4f', Kp, Kd, Ki, st)
+                bus.write_block_data(ARDUINO_ADDR, CHANGE_HEAVE_PID, list(float2bytes))
+    except IOError as e:
+        time.sleep(1)
+        subprocess.call(['i2cdetect', '-y', '1'])
+    time.sleep(0.1)   
+
+    try:
+        if (user_mode == False):
+            change_value = input('Change Tragectory (y/n)?: ')
+            if (change_value == 'y'):
+                xd = float(input('xd: '))
+                yawd = float(input('zd: '))
+                zd = float(input('yawd: '))
+                float2bytes = struct.pack('=3f', xd, zd, yawd)
+                bus.write_block_data(ARDUINO_ADDR, REG_REF_TRAG , list(float2bytes))
+                time.sleep(0.1)
+    except IOError as e:
+        time.sleep(1)
+        subprocess.call(['i2cdetect', '-y', '1'])
 
     while True:
         if (user_mode == True):
@@ -106,68 +153,25 @@ def io_thread():
                 print (e)
                 time.sleep(1)
                 subprocess.call(['i2cdetect', '-y', '1'])
-        try:    
-            arduino_packet = bus.read_i2c_block_data(ARDUINO_ADDR, REG_R_ALL, ARDUINO_PACKET_SIZE)
-            arduino_data = struct.unpack('=fff',bytes(arduino_packet))
-            f.write('%s %s %s\n' % (str(arduino_data[0]),str(arduino_data[1]),str(arduino_data[2])))
-            #print('depth ' + str(arduino_data[2]))
-            #print('yaw_pid_out ' + str(arduino_data[0]))
-            #print('heave_pid_out ' + str(arduino_data[1]))
-        except IOError as e:
-            print(e)
-            time.sleep(1)
-            subprocess.call(['i2cdetect', '-y', '1'])
-        time.sleep(0.1)
-        
-        
-        if (param_change == True):
-            try:
-                if (user_mode == False):
-                    change_value = input('Change Yaw Params (y/n)?: ')
-                    if (change_value == 'y'):
-                        Kp = int(input('Yaw Kp: '))
-                        Kd = int(input('Yaw Kd: '))
-                        Ki = int(input('Yaw Ki: '))
-                        st = int(input('Yaw st: '))
-                        float2bytes = struct.pack('=4f', Kp, Kd, Ki, st)
-                        bus.write_block_data(ARDUINO_ADDR, CHANGE_YAW_PID, list(float2bytes))
+        if ( (count % 100) == 0 and get_pid_values == True):
+            try:    
+                arduino_packet = bus.read_i2c_block_data(ARDUINO_ADDR, REG_R_ALL, ARDUINO_PACKET_SIZE)
+                arduino_data = struct.unpack('=fff',bytes(arduino_packet))
+                time.sleep(0.1)
+                #f.write('%s %s %s\n' % (str(arduino_data[0]),str(arduino_data[1]),str(arduino_data[2])))
+                print('depth ' + str(arduino_data[2]))
+                print('yaw_pid_out ' + str(arduino_data[0]))
+                print('heave_pid_out ' + str(arduino_data[1]) + '\n\n')
+                count = 0
             except IOError as e:
+                print(e)
                 time.sleep(1)
                 subprocess.call(['i2cdetect', '-y', '1'])
-            time.sleep(0.1)
-
-            try:
-                if (user_mode == False):
-                    change_value = input('Change Heave Params (y/n)?: ')
-                    if (change_value == 'y'):
-                        Kp = int(input('Heave Kp: '))
-                        Kd = int(input('Heave Kd: '))
-                        Ki = int(input('Heave Ki: '))
-                        st = int(input('Heave st: '))
-                        float2bytes = struct.pack('=4f', Kp, Kd, Ki, st)
-                        bus.write_block_data(ARDUINO_ADDR, CHANGE_HEAVE_PID, list(float2bytes))
-            except IOError as e:
-                time.sleep(1)
-                subprocess.call(['i2cdetect', '-y', '1'])
-            time.sleep(0.1)
-        
-        try:
-            if (user_mode == False):
-                change_value = input('Change Tragectory (y/n)?: ')
-                if (change_value == 'y'):
-                    xd = int(input('xd: '))
-                    yd = int(input('yd: '))
-                    zd = int(input('zd: '))
-                    float2bytes = struct.pack('=3f', xd, yd, zd)
-                    bus.write_block_data(ARDUINO_ADDR, REG_REF_TRAG , list(float2bytes))
-                    time.sleep(0.1)
-        except IOError as e:
-            time.sleep(1)
-            subprocess.call(['i2cdetect', '-y', '1'])
         
         try:
             motion = imu_fifo.get(timeout=0.5)
         except queue.Empty as e:
+            print("FIFO empty")
             continue
         try:
             float2bytes = struct.pack('=3f', motion['ax'], motion['az'], motion['yaw'])
@@ -176,6 +180,7 @@ def io_thread():
         except IOError as e:
             time.sleep(1)
             subprocess.call(['i2cdetect', '-y', '1'])
+        count +=1
 
 def input_handler(stdscr):
     cmd = IDLE
@@ -221,7 +226,7 @@ def input_handler(stdscr):
         user_cmd_fifo.put(cmd)
         
 def imu_thread():
-    DEBUG_MODE = False
+    DEBUG_MODE = True
     mpu = MPU6050(i2c_bus, device_address, x_accel_offset, y_accel_offset,
               z_accel_offset, x_gyro_offset, y_gyro_offset, z_gyro_offset,
               enable_debug_output)
@@ -235,7 +240,7 @@ def imu_thread():
     print(packet_size)
     FIFO_count = mpu.get_FIFO_count()
     print(FIFO_count)
-    
+    count = 0
     while True:
        
         FIFO_count = mpu.get_FIFO_count()
@@ -256,16 +261,19 @@ def imu_thread():
             a_raw = mpu.get_acceleration()
             imu_fifo.put({'ax':9.80665*(a_raw[0]/16384.0), 'ay' : 9.80665*(a_raw[1]/16384.0), 'az' : 9.80665*(a_raw[2]/16384.0), 'yaw': rpy.z })
             
-            if DEBUG_MODE == True:
+            if (count == 100)and DEBUG_MODE == True:
                 print('ax: ' + str( 9.80665*(a_raw[0]/16384.0)))
                 print('az: ' + str( 9.80665*(a_raw[2]/16384.0)))
                 print('yaw: ' + str( rpy.z) + '\n\n')
-        
+                count = 0
+            count +=1
   
 if __name__ == '__main__':
     _thread.start_new_thread(imu_thread,())
-    if (user_mode == True):
-        _thread.start_new_thread(io_thread, ())
-        curses.wrapper(input_handler)
-    else:
-        io_thread()
+    if (len(sys.argv) > 1):
+        user_mode = False if (sys.argv[1] == 'auto') else True
+        if (user_mode == True):
+            _thread.start_new_thread(io_thread, ())
+            curses.wrapper(input_handler)
+        else:
+            io_thread()
