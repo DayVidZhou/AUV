@@ -112,41 +112,41 @@ void loop(void){
 				break;
 			case FWD_SURGE:
 				state = SURGING;
-				//cur_mot.center = MID_PULSE_LENGTH;
-				//motC.writeMicroseconds(MID_PULSE_LENGTH);		
+				cur_mot.center = MID_PULSE_LENGTH;
+				motC.writeMicroseconds(MID_PULSE_LENGTH);		
 				surge(user.power);
 				break;
 			case RWD_SURGE:
 				state = SURGING;
-				//cur_mot.center = MID_PULSE_LENGTH;
-				//motC.writeMicroseconds(MID_PULSE_LENGTH);
+				cur_mot.center = MID_PULSE_LENGTH;
+				motC.writeMicroseconds(MID_PULSE_LENGTH);
 				surge(-user.power);
 				break;
 			case UP_HEAVE:
-				//cur_mot.left = MID_PULSE_LENGTH;
-				//cur_mot.right = MID_PULSE_LENGTH;
-				//motA.writeMicroseconds(MID_PULSE_LENGTH);
-				//motB.writeMicroseconds(MID_PULSE_LENGTH);
+				cur_mot.left = MID_PULSE_LENGTH;
+				cur_mot.right = MID_PULSE_LENGTH;
+				motA.writeMicroseconds(MID_PULSE_LENGTH);
+				motB.writeMicroseconds(MID_PULSE_LENGTH);
 				heave(user.power);
 				break;
 			case DWN_HEAVE:
-				//cur_mot.left = MID_PULSE_LENGTH;
-				//cur_mot.right = MID_PULSE_LENGTH;
-				//motA.writeMicroseconds(MID_PULSE_LENGTH);
-				//motB.writeMicroseconds(MID_PULSE_LENGTH);
+				cur_mot.left = MID_PULSE_LENGTH;
+				cur_mot.right = MID_PULSE_LENGTH;
+				motA.writeMicroseconds(MID_PULSE_LENGTH);
+				motB.writeMicroseconds(MID_PULSE_LENGTH);
 				state = HEAVING;
 				heave( -user.power);
 				break;
 			case YAW_LEFT:
 				state = YAWING;
-				///cur_mot.center = MID_PULSE_LENGTH;
-				//motC.writeMicroseconds(MID_PULSE_LENGTH);		
+				cur_mot.center = MID_PULSE_LENGTH;
+				motC.writeMicroseconds(MID_PULSE_LENGTH);		
 				yaw( user.power);
 				break;
 			case YAW_RIGHT:
 				state = YAWING;
-				//cur_mot.center = MID_PULSE_LENGTH;
-				//motC.writeMicroseconds(MID_PULSE_LENGTH);		
+				cur_mot.center = MID_PULSE_LENGTH;
+				motC.writeMicroseconds(MID_PULSE_LENGTH);		
 				yaw(-user.power);
 				break;
 			case SHUT_DWN:
