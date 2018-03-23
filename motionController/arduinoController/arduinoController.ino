@@ -107,7 +107,7 @@ void setup(){
 	motC.writeMicroseconds(MID_PULSE_LENGTH);
 	
 	state = IDLE;
-	user.mode = USER_CONTROL;
+	user.mode = AUTONOMOUS;
 	
 	cur_mot.center = MID_PULSE_LENGTH;
 	cur_mot.left = MID_PULSE_LENGTH;
