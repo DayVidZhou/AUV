@@ -21,14 +21,16 @@
 
 #define GRAVITY_OFFSET 0 // GRAVITY - BOUYANCY
 
-#define Wb_YAW 0.1
-#define Wb_HEAVE 0.1
-#define T_HEAVE 0 // heave time constant
+#define Wb_YAW 27
+#define Wb_HEAVE 27
+#define T_HEAVE 0.1 // heave time constant
 #define T_YAW 0.431 // yaw time constant
 #define T_SURGE 0 // surge input gain
 #define K_YAW 1.13 // yaw gain for an input of 55 microseconds
-#define K_HEAVE 1
+#define K_HEAVE 10
 #define PID_RATE 5 // Hz
+#define YAW_PID_SAMPLE_TIME 11
+#define HEAVE_PID_SAMPLE_TIME 3
 #define YAW_W_HPF_CUTOFF 5 // Hz
 #define IMU_SAMPLE_RATE 42 // Hz
 
