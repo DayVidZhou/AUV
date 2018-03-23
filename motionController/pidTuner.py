@@ -57,9 +57,9 @@ z_accel_offset = -534 #1305
 x_gyro_offset = 51 #-2
 y_gyro_offset =203 #-72
 z_gyro_offset = 68 #-5
-enable_debug_output = False
+enable_debug_output = True
 
-user_mode = True
+user_mode = False
 #imu6050 = mpu6050(0x68)
 bus = smbus.SMBus(1) # for RPI version 1, use "bus = smbus.SMBus(0)"
 user_cmd_fifo = queue.Queue()
@@ -78,6 +78,9 @@ def io_thread():
     count = 0
     motion = None
     param_change = False
+    xd = 0
+    yd = 0
+    zd = 0
     f = open('tuning.txt', 'w')
     if (user_mode == True):
         try:
@@ -120,18 +123,14 @@ def io_thread():
         if (param_change == True):
             try:
                 if (user_mode == False):
-                    Kp = int(input('Yaw Kp: '))
-                    Kd = int(input('Yaw Kd: '))
-                    Ki = int(input('Yaw Ki: '))
-                    st = int(input('Yaw st: '))
-                else:
-                    Kp = 0
-                    Kd = 0
-                    Ki = 0
-                    st = 0
-                float2bytes = struct.pack('=4f', Kp, Kd, Ki, st)
-                bus.write_block_data(ARDUINO_ADDR, CHANGE_YAW_PID, list(float2bytes))
-
+                    change_value = input('Change Yaw Params (y/n)?: ')
+                    if (change_value == 'y'):
+                        Kp = int(input('Yaw Kp: '))
+                        Kd = int(input('Yaw Kd: '))
+                        Ki = int(input('Yaw Ki: '))
+                        st = int(input('Yaw st: '))
+                        float2bytes = struct.pack('=4f', Kp, Kd, Ki, st)
+                        bus.write_block_data(ARDUINO_ADDR, CHANGE_YAW_PID, list(float2bytes))
             except IOError as e:
                 time.sleep(1)
                 subprocess.call(['i2cdetect', '-y', '1'])
@@ -139,18 +138,14 @@ def io_thread():
 
             try:
                 if (user_mode == False):
-                    Kp = int(input('Heave Kp: '))
-                    Kd = int(input('Heave Kd: '))
-                    Ki = int(input('Heave Ki: '))
-                    st = int(input('Heave st: '))
-                else:
-                    st = 0
-                    Kp = 0
-                    Kd = 0
-                    Ki = 0
-                float2bytes = struct.pack('=4f', Kp, Kd, Ki, st)
-                bus.write_block_data(ARDUINO_ADDR, CHANGE_HEAVE_PID, list(float2bytes))
-
+                    change_value = input('Change Heave Params (y/n)?: ')
+                    if (change_value == 'y'):
+                        Kp = int(input('Heave Kp: '))
+                        Kd = int(input('Heave Kd: '))
+                        Ki = int(input('Heave Ki: '))
+                        st = int(input('Heave st: '))
+                        float2bytes = struct.pack('=4f', Kp, Kd, Ki, st)
+                        bus.write_block_data(ARDUINO_ADDR, CHANGE_HEAVE_PID, list(float2bytes))
             except IOError as e:
                 time.sleep(1)
                 subprocess.call(['i2cdetect', '-y', '1'])
@@ -158,16 +153,14 @@ def io_thread():
         
         try:
             if (user_mode == False):
-                xd = int(input('xd: '))
-                yd = int(input('yd: '))
-                zd = int(input('zd: '))
-            else:
-                xd = 1.0
-                yd = 0.2
-                zd = 1.0
-            float2bytes = struct.pack('=3f', xd, yd, zd)
-            bus.write_block_data(ARDUINO_ADDR, REG_REF_TRAG , list(float2bytes))
-            time.sleep(0.1)
+                change_value = input('Change Tragectory (y/n)?: ')
+                if (change_value == 'y'):
+                    xd = int(input('xd: '))
+                    yd = int(input('yd: '))
+                    zd = int(input('zd: '))
+                    float2bytes = struct.pack('=3f', xd, yd, zd)
+                    bus.write_block_data(ARDUINO_ADDR, REG_REF_TRAG , list(float2bytes))
+                    time.sleep(0.1)
         except IOError as e:
             time.sleep(1)
             subprocess.call(['i2cdetect', '-y', '1'])
