@@ -163,15 +163,12 @@ void loop(void){
 		}
 		
 	}
-/*
 	Serial.print("left: ");
 	Serial.print(cur_mot.left);
 	Serial.print(" right: ");
 	Serial.print(cur_mot.right);
 	Serial.print(" center: ");
 	Serial.println(cur_mot.center);
-*/
-	delay(200);
 }
 
 

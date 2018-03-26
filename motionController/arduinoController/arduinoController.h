@@ -41,9 +41,9 @@
 #define DEAD_RANGE 90
 #define MIN_FWD 1545 // needs to be checked
 #define MIN_RWD 1455 // needs to be checked
-#define RIGHT_MOTOR_PIN 9
+#define RIGHT_MOTOR_PIN 10
 #define LEFT_MOTOR_PIN 11
-#define MIDDLE_MOTOR_PIN 10
+#define MIDDLE_MOTOR_PIN 9
 
 // Pressure Sensor Params
 #define WATER_DENSITY 998.57 // [kg/m^3] @ 18 [deg]
