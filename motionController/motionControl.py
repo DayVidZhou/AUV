@@ -61,11 +61,11 @@ def run():
             try:
                 cmd_dir = user_cmd_fifo.get(timeout=0.5)
             except queue.Empty as e:
-                print(e)
                 cmd_dir = IDLE
+                print(e)
             try:
                 chksum = -4
-                short2bytes = struct.pack('=hhb', cmd_dir,cmd_pwr, chksum)
+                short2bytes = struct.pack('=hh', cmd_dir,cmd_pwr)#, chksum)
                 #print(short2bytes)
                 bus.write_block_data(ARDUINO_ADDR, REG_USER_CMD, list(short2bytes))
                 #bus.write_word_data(ARDUINO_ADDR, REG_USER_CMD, (cmd_dir<<8)|cmd_pwr)
