@@ -98,49 +98,64 @@ void loop(void){
 		switch(user.direction) {	
 			case STOP: // left
 				state = IDLE;
+				cur_mot.left = MID_PULSE_LENGTH;
+				cur_mot.right = MID_PULSE_LENGTH;
+				cur_mot.center = MID_PULSE_LENGTH;
 				motA.writeMicroseconds(MID_PULSE_LENGTH);
 				motB.writeMicroseconds(MID_PULSE_LENGTH);
 				motC.writeMicroseconds(MID_PULSE_LENGTH);
 				break;
 			case FWD_SURGE:
 				state = SURGING;
+				cur_mot.center = MID_PULSE_LENGTH;
 				motC.writeMicroseconds(MID_PULSE_LENGTH);		
 				surge(user.power);
 				break;
 			case RWD_SURGE:
 				state = SURGING;
+				cur_mot.center = MID_PULSE_LENGTH;
 				motC.writeMicroseconds(MID_PULSE_LENGTH);
 				surge(-user.power);
 				break;
 			case UP_HEAVE:
+				cur_mot.left = MID_PULSE_LENGTH;
+				cur_mot.right = MID_PULSE_LENGTH;
 				motA.writeMicroseconds(MID_PULSE_LENGTH);
 				motB.writeMicroseconds(MID_PULSE_LENGTH);
 				heave(user.power);
 				break;
 			case DWN_HEAVE:
 				state = HEAVING;
+				cur_mot.left = MID_PULSE_LENGTH;
+				cur_mot.right = MID_PULSE_LENGTH;
 				motA.writeMicroseconds(MID_PULSE_LENGTH);
 				motB.writeMicroseconds(MID_PULSE_LENGTH);
 				heave( -user.power);
 				break;
 			case YAW_LEFT:
 				state = YAWING;
+				cur_mot.center = MID_PULSE_LENGTH;
 				motC.writeMicroseconds(MID_PULSE_LENGTH);		
 				yaw( user.power);
 				break;
 			case YAW_RIGHT:
 				state = YAWING;
+				cur_mot.center = MID_PULSE_LENGTH;
 				motC.writeMicroseconds(MID_PULSE_LENGTH);		
 				yaw(-user.power);
 				break;
 			case SHUT_DWN:
 				state = IDLE;
+				cur_mot.center = MID_PULSE_LENGTH;
 				motA.writeMicroseconds(MID_PULSE_LENGTH);
 				motB.writeMicroseconds(MID_PULSE_LENGTH);
 				motC.writeMicroseconds(MID_PULSE_LENGTH);
 				break;
 			default:
 				state = IDLE;
+				cur_mot.left = MID_PULSE_LENGTH;
+				cur_mot.right = MID_PULSE_LENGTH;
+				cur_mot.center = MID_PULSE_LENGTH;
 				motA.writeMicroseconds(MID_PULSE_LENGTH);
 				motB.writeMicroseconds(MID_PULSE_LENGTH);
 				motC.writeMicroseconds(MID_PULSE_LENGTH);
@@ -194,7 +209,7 @@ void receiveData(int byteCount){ // i2c recieve callback
 			user.power = Wire.read() |(Wire.read() << 8) ;
 			//user.power = Wire.read();
 			//user.direction = Wire.read();
-			chksum = Wire.read();
+			//chksum = Wire.read();
 			/*Serial.print("pow: ");
 			Serial.print(user.power);
 			Serial.print(" dir: ");
