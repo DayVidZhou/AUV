@@ -119,8 +119,10 @@ void setup(){
 
 	yaw_pid_ctrl.SetMode(AUTOMATIC);
 	heave_pid_ctrl.SetMode(AUTOMATIC);
+
 	yaw_pid_ctrl.SetOutputLimits(-1*YAW_CTRL_MAX, YAW_CTRL_MAX);
 	heave_pid_ctrl.SetOutputLimits(-1*HEAVE_CTRL_MAX, HEAVE_CTRL_MAX);
+
 	yaw_pid_ctrl.SetSampleTime(YAW_PID_SAMPLE_TIME);
 	heave_pid_ctrl.SetSampleTime(HEAVE_PID_SAMPLE_TIME);
 	
@@ -189,7 +191,6 @@ void loop(void){
 	//Serial.print(yaw_pid_output, 4); 
 	//Serial.print(" heave out: "); 
 	//Serial.println(heave_pid_output, 4);
-	delay(10);
 }
 
 
@@ -392,28 +393,6 @@ void heave(int thrust) {
 	}
 }
 
-// type == 0 -> r_d
-// type == 1 -> rdot_d
-// type == 2 -> w_d
-// type == 3 -> wdot_d
-// type == 4 -> u_d
-// type == 5 -> udot_d
-double saturate(int type, double input) {
-	switch (type) {
-		case 0:
-			return constrain(input, -1*YAW_RATE_D_MAX, YAW_RATE_D_MAX);
-		case 1:
-			return constrain(input, -1*YAW_ACCEL_D_MAX, YAW_ACCEL_D_MAX);
-		case 2:
-			return constrain(input, -1*HEAVE_RATE_D_MAX, HEAVE_RATE_D_MAX);
-		case 3:
-			return constrain(input, -1*HEAVE_RATE_D_MAX, HEAVE_ACCEL_D_MAX);
-		case 4:
-			return constrain(input, -1*SURGE_RATE_D_MAX, SURGE_RATE_D_MAX);
-		case 5:
-			return constrain(input, -1*SURGE_ACCEL_D_MAX, SURGE_ACCEL_D_MAX);
-	}
-}
 
 inline void read_bytes(byte bytes[4], byte *p, int i) {
 							bytes[0] = p[i];
